@@ -235,7 +235,7 @@
                     entries: {},
                     currentDate: new Date(),
                     selectedDate: null,
-                    editEntry: { alcohol: '', steps: '', workout: false }
+                    editEntry: { alcohol: '', steps: '', workout: null }
                 };
                 this.listeners = [];
                 this.loadData();
@@ -400,12 +400,27 @@
                 const entry = this.state.entries[dateKey];
                 this.setState({
                     selectedDate: date,
-                    editEntry: entry ? { ...entry } : { alcohol: '', steps: '', workout: false },
+                    editEntry: entry ? { ...entry } : { alcohol: '', steps: '', workout: null },
                     view: 'edit'
                 });
             }
 
             updateEntry(field, value) {
+                // Validate and constrain values
+                if (field === 'alcohol') {
+                    const alcoholValue = parseInt(value);
+                    if (!isNaN(alcoholValue)) {
+                        if (alcoholValue < 0) value = '0';
+                        if (alcoholValue > 50) value = '50';
+                    }
+                } else if (field === 'steps') {
+                    const stepsValue = parseInt(value);
+                    if (!isNaN(stepsValue)) {
+                        if (stepsValue < 0) value = '0';
+                        if (stepsValue > 100000) value = '100000';
+                    }
+                }
+
                 this.state.editEntry[field] = value;
                 // Don't update backgrounds during typing - only update on blur or workout toggle
             }
@@ -587,6 +602,7 @@
                                 type="number"
                                 inputmode="numeric"
                                 min="0"
+                                max="50"
                                 data-field="alcohol"
                                 value="${entry.alcohol}"
                                 class="w-full p-4 text-xl font-semibold text-gray-800"
@@ -604,6 +620,7 @@
                                 type="number"
                                 inputmode="numeric"
                                 min="0"
+                                max="100000"
                                 data-field="steps"
                                 value="${entry.steps}"
                                 class="w-full p-4 text-xl font-semibold text-gray-800"
@@ -669,14 +686,14 @@
                 return `
                     <div class="p-4">
                         <div class="flex justify-between items-center mb-4">
-                            <button data-action="prev-week" class="bg-blue-500 text-white px-4 py-2 rounded">
+                            <button data-action="prev-week" class="bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white px-6 py-2 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all">
                                 ← Prev
                             </button>
                             <h2 class="text-xl font-bold">
                                 ${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} -
                                 ${days[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </h2>
-                            <button data-action="next-week" class="bg-blue-500 text-white px-4 py-2 rounded">
+                            <button data-action="next-week" class="bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white px-6 py-2 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all">
                                 Next →
                             </button>
                         </div>
@@ -748,11 +765,11 @@
                 return `
                     <div class="p-4">
                         <div class="flex justify-between items-center mb-4">
-                            <button data-action="prev-month" class="bg-blue-500 text-white px-4 py-2 rounded">
+                            <button data-action="prev-month" class="bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white px-6 py-2 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all">
                                 ← Prev
                             </button>
                             <h2 class="text-xl font-bold">${monthName}</h2>
-                            <button data-action="next-month" class="bg-blue-500 text-white px-4 py-2 rounded">
+                            <button data-action="next-month" class="bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white px-6 py-2 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all">
                                 Next →
                             </button>
                         </div>
@@ -1152,14 +1169,7 @@
                     });
                 }
 
-                // Edit date buttons
-                document.querySelectorAll('[data-edit-date]').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const dateStr = e.currentTarget.dataset.editDate;
-                        const date = new Date(dateStr + 'T12:00:00');
-                        tracker.editDate(date);
-                    });
-                });
+                // Edit date buttons handled by event delegation (see bottom of attachEventListeners)
 
                 // Tooltip for week view
                 const tooltip = document.getElementById('tooltip');
@@ -1229,6 +1239,16 @@
 
             tracker.subscribe(render);
             render();
+
+            // Set up event delegation for edit date buttons (only once)
+            container.addEventListener('click', (e) => {
+                const editDateBtn = e.target.closest('[data-edit-date]');
+                if (editDateBtn) {
+                    const dateStr = editDateBtn.dataset.editDate;
+                    const date = new Date(dateStr + 'T12:00:00');
+                    tracker.editDate(date);
+                }
+            });
         }
 
         // Initialize app
