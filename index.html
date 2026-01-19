@@ -309,26 +309,26 @@
             }
 
             getColor(type, value) {
-                if (value === null || value === undefined || value === '') return 'bg-gray-200';
+                if (value === null || value === undefined || value === '') return 'bg-gray-300';
 
                 switch(type) {
                     case 'alcohol':
                         const drinks = parseInt(value);
-                        if (isNaN(drinks)) return 'bg-gray-200';
+                        if (isNaN(drinks)) return 'bg-gray-300';
                         if (drinks >= 0 && drinks <= this.state.settings.alcoholGood) return 'bg-[#b8f4d4]'; // Mint
                         if (drinks <= this.state.settings.alcoholPartial) return 'bg-[#fff4b8]'; // Soft yellow
                         return 'bg-[#ffb8b8]'; // Coral
                     case 'steps':
                         const steps = parseInt(value);
-                        if (isNaN(steps)) return 'bg-gray-200';
+                        if (isNaN(steps)) return 'bg-gray-300';
                         return steps >= this.state.settings.stepsGoal ? 'bg-[#b8f4d4]' : 'bg-[#ffb8b8]';
                     case 'workout':
                         // Check if value is explicitly false (not just falsy)
                         if (value === false) return 'bg-[#ffb8b8]'; // Coral for No
                         if (value === true) return 'bg-[#b8f4d4]'; // Mint for Yes
-                        return 'bg-gray-200'; // Gray for not selected yet
+                        return 'bg-gray-300'; // Gray for not selected yet
                     default:
-                        return 'bg-gray-200';
+                        return 'bg-gray-300';
                 }
             }
 
