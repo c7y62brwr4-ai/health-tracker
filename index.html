@@ -545,7 +545,17 @@
                 // Get current year entries
                 const currentYear = new Date().getFullYear();
                 const yearDates = allDates.filter(date => {
-                    return new Date(date).getFullYear() === currentYear;
+                    const entryDate = new Date(date);
+                    const entryYear = entryDate.getFullYear();
+
+                    // For 2026, only include dates from January 18 onwards
+                    if (entryYear === 2026) {
+                        const cutoffDate = new Date('2026-01-18');
+                        return entryDate >= cutoffDate;
+                    }
+
+                    // For all other years, include full year
+                    return entryYear === currentYear;
                 });
 
                 let alcoholGreen = 0, alcoholYellow = 0, alcoholRed = 0;
@@ -553,8 +563,28 @@
                 let workoutYes = 0, workoutNo = 0;
                 let allThreeGoals = 0;
 
+                // Group dates by week for workout calculation
+                const weeklyWorkouts = {};
+                const weeklyAlcohol = {};
+                const weeklySteps = {};
+
                 yearDates.forEach(date => {
                     const entry = state.entries[date];
+                    const entryDate = new Date(date);
+
+                    // Get week key (year + week number)
+                    const weekStart = new Date(entryDate);
+                    weekStart.setDate(entryDate.getDate() - entryDate.getDay()); // Start of week (Sunday)
+                    const weekKey = tracker.formatDate(weekStart);
+
+                    // Initialize week tracking
+                    if (!weeklyWorkouts[weekKey]) {
+                        weeklyWorkouts[weekKey] = 0;
+                        weeklyAlcohol[weekKey] = [];
+                        weeklySteps[weekKey] = [];
+                    }
+
+                    // Track daily metrics
                     const drinks = parseInt(entry.alcohol);
                     const alcoholSuccess = drinks >= 0 && drinks <= 2;
                     if (alcoholSuccess) alcoholGreen++;
@@ -566,12 +596,33 @@
                     if (stepsSuccess) stepsGreen++;
                     else stepsRed++;
 
-                    const workoutSuccess = entry.workout;
-                    if (workoutSuccess) workoutYes++;
-                    else workoutNo++;
+                    if (entry.workout) {
+                        workoutYes++;
+                        weeklyWorkouts[weekKey]++;
+                    } else {
+                        workoutNo++;
+                    }
 
-                    // Count days where all three goals were met
-                    if (alcoholSuccess && stepsSuccess && workoutSuccess) {
+                    // Track for weekly goals
+                    weeklyAlcohol[weekKey].push(alcoholSuccess);
+                    weeklySteps[weekKey].push(stepsSuccess);
+                });
+
+                // Calculate weekly workout success (3+ workouts per week)
+                let weeksWithWorkoutGoal = 0;
+                let totalWeeks = Object.keys(weeklyWorkouts).length;
+
+                Object.keys(weeklyWorkouts).forEach(weekKey => {
+                    const workoutsThisWeek = weeklyWorkouts[weekKey];
+                    const alcoholSuccessThisWeek = weeklyAlcohol[weekKey].every(day => day);
+                    const stepsSuccessThisWeek = weeklySteps[weekKey].every(day => day);
+
+                    if (workoutsThisWeek >= 3) {
+                        weeksWithWorkoutGoal++;
+                    }
+
+                    // Count weeks where all three goals were met
+                    if (workoutsThisWeek >= 3 && alcoholSuccessThisWeek && stepsSuccessThisWeek) {
                         allThreeGoals++;
                     }
                 });
@@ -580,8 +631,8 @@
                 const totalDays = yearDates.length;
                 const alcoholPercent = totalDays > 0 ? Math.round((alcoholGreen / totalDays) * 100) : 0;
                 const stepsPercent = totalDays > 0 ? Math.round((stepsGreen / totalDays) * 100) : 0;
-                const workoutPercent = totalDays > 0 ? Math.round((workoutYes / totalDays) * 100) : 0;
-                const allThreePercent = totalDays > 0 ? Math.round((allThreeGoals / totalDays) * 100) : 0;
+                const workoutPercent = totalWeeks > 0 ? Math.round((weeksWithWorkoutGoal / totalWeeks) * 100) : 0;
+                const allThreePercent = totalWeeks > 0 ? Math.round((allThreeGoals / totalWeeks) * 100) : 0;
 
                 let longestStreak = 0;
                 let streakCount = 0;
@@ -612,8 +663,9 @@
                             <h3 class="text-2xl font-bold text-center mb-4">🎯 All Goals Achievement</h3>
                             <div class="text-center">
                                 <div class="text-6xl font-bold mb-2">${allThreePercent}%</div>
-                                <p class="text-lg">Days you hit all three goals!</p>
-                                <p class="text-sm mt-2 opacity-90">${allThreeGoals} out of ${totalDays} days</p>
+                                <p class="text-lg">Weeks you hit all three goals!</p>
+                                <p class="text-sm mt-2 opacity-90">${allThreeGoals} out of ${totalWeeks} weeks</p>
+                                <p class="text-xs mt-3 opacity-80">Alcohol 0-2 every day • Steps 12,500+ every day • Workouts 3+ times</p>
                             </div>
                         </div>
 
@@ -685,14 +737,15 @@
                                 </div>
                                 <div class="text-2xl font-bold text-green-600">${workoutPercent}%</div>
                             </div>
+                            <p class="text-sm text-gray-600 mb-3">Goal: 3 workouts per week</p>
                             <div class="space-y-2">
                                 <div class="flex justify-between items-center">
-                                    <span>Completed</span>
-                                    <span class="bg-green-400 px-3 py-1 rounded font-bold">${workoutYes} days</span>
+                                    <span>Weeks Goal Met (3+)</span>
+                                    <span class="bg-green-400 px-3 py-1 rounded font-bold">${weeksWithWorkoutGoal} weeks</span>
                                 </div>
                                 <div class="flex justify-between items-center">
-                                    <span>Missed</span>
-                                    <span class="bg-red-400 px-3 py-1 rounded font-bold">${workoutNo} days</span>
+                                    <span>Total Workouts</span>
+                                    <span class="bg-blue-400 px-3 py-1 rounded font-bold">${workoutYes} days</span>
                                 </div>
                                 <div class="mt-2 pt-2 border-t space-y-1">
                                     <div>
