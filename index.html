@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Health Tracker">
-    <title>Daily Health Tracker</title>
+    <title>Buber Health</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * {
@@ -15,11 +15,22 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
             overscroll-behavior: none;
+            background: linear-gradient(135deg, #fef3e2 0%, #fce8f3 100%);
+        }
+
+        /* Custom pastel color palette */
+        :root {
+            --mint: #b8f4d4;
+            --peach: #ffd4b8;
+            --coral: #ffb8b8;
+            --soft-blue: #d4e4ff;
+            --soft-purple: #e8d4ff;
+            --soft-yellow: #fff4b8;
         }
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
+            gap: 8px;
         }
         .calendar-day {
             aspect-ratio: 1;
@@ -27,14 +38,92 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            border-radius: 8px;
-            padding: 4px;
+            border-radius: 16px;
+            padding: 8px;
             font-size: 12px;
             border: none;
-            transition: transform 0.1s;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .calendar-day:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
         }
         .calendar-day:active {
             transform: scale(0.95);
+        }
+
+        /* Card styles */
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        }
+
+        /* Button styles */
+        .btn-primary {
+            background: linear-gradient(135deg, #a8e6cf 0%, #7fd4b8 100%);
+            border: none;
+            border-radius: 16px;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            color: #2d3748;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(168, 230, 207, 0.3);
+        }
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        /* Input styles */
+        input[type="number"] {
+            -webkit-appearance: none;
+            appearance: none;
+            border-radius: 12px;
+            border: 2px solid #e8e8e8;
+            transition: all 0.2s ease;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #a8e6cf;
+            box-shadow: 0 0 0 4px rgba(168, 230, 207, 0.1);
+        }
+
+        /* Workout buttons */
+        .workout-btn {
+            border-radius: 16px;
+            transition: all 0.2s ease;
+            border: 2px solid #e8e8e8;
+        }
+        .workout-btn.active-yes {
+            background: linear-gradient(135deg, #b8f4d4 0%, #a8e6cf 100%);
+            border-color: #7fd4b8;
+            box-shadow: 0 4px 12px rgba(184, 244, 212, 0.4);
+        }
+        .workout-btn.active-no {
+            background: linear-gradient(135deg, #ffb8b8 0%, #ffa8a8 100%);
+            border-color: #ff9898;
+            box-shadow: 0 4px 12px rgba(255, 184, 184, 0.4);
+        }
+
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease;
         }
         .calendar-day-header {
             font-weight: 600;
@@ -140,16 +229,16 @@
                     case 'alcohol':
                         const drinks = parseInt(value);
                         if (isNaN(drinks)) return 'bg-gray-200';
-                        if (drinks >= 0 && drinks <= 2) return 'bg-green-400';
-                        if (drinks >= 3 && drinks <= 4) return 'bg-yellow-400';
-                        if (drinks >= 5) return 'bg-red-400';
+                        if (drinks >= 0 && drinks <= 2) return 'bg-[#b8f4d4]'; // Mint
+                        if (drinks >= 3 && drinks <= 4) return 'bg-[#fff4b8]'; // Soft yellow
+                        if (drinks >= 5) return 'bg-[#ffb8b8]'; // Coral
                         return 'bg-gray-200';
                     case 'steps':
                         const steps = parseInt(value);
                         if (isNaN(steps)) return 'bg-gray-200';
-                        return steps >= 12500 ? 'bg-green-400' : 'bg-red-400';
+                        return steps >= 12500 ? 'bg-[#b8f4d4]' : 'bg-[#ffb8b8]'; // Mint or Coral
                     case 'workout':
-                        return value ? 'bg-green-400' : 'bg-red-400';
+                        return value ? 'bg-[#b8f4d4]' : 'bg-[#ffb8b8]'; // Mint or Coral
                     default:
                         return 'bg-gray-200';
                 }
@@ -192,13 +281,16 @@
                 const workoutBg = document.querySelector('[data-bg="workout"]');
 
                 if (alcoholBg) {
-                    alcoholBg.className = `p-4 rounded-lg ${this.getColor('alcohol', this.state.editEntry.alcohol)}`;
+                    alcoholBg.className = `card ${this.getColor('alcohol', this.state.editEntry.alcohol)}`;
+                    alcoholBg.style.transition = 'all 0.3s ease';
                 }
                 if (stepsBg) {
-                    stepsBg.className = `p-4 rounded-lg ${this.getColor('steps', this.state.editEntry.steps)}`;
+                    stepsBg.className = `card ${this.getColor('steps', this.state.editEntry.steps)}`;
+                    stepsBg.style.transition = 'all 0.3s ease';
                 }
                 if (workoutBg) {
-                    workoutBg.className = `p-4 rounded-lg ${this.getColor('workout', this.state.editEntry.workout)}`;
+                    workoutBg.className = `card ${this.getColor('workout', this.state.editEntry.workout)}`;
+                    workoutBg.style.transition = 'all 0.3s ease';
                 }
             }
 
@@ -259,23 +351,24 @@
                 const state = tracker.state;
 
                 container.innerHTML = `
-                    <div class="max-w-4xl mx-auto min-h-screen bg-gray-50">
-                        <div class="bg-blue-600 text-white p-4 shadow-lg">
-                            <h1 class="text-2xl font-bold text-center">Health Tracker</h1>
+                    <div class="max-w-4xl mx-auto min-h-screen">
+                        <div class="bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white p-6 shadow-lg" style="border-radius: 0 0 30px 30px;">
+                            <h1 class="text-3xl font-bold text-center tracking-tight" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Buber Health</h1>
+                            <p class="text-center text-sm mt-1 opacity-90">Your wellness journey ✨</p>
                         </div>
 
-                        <div class="bg-white shadow-md sticky top-0 z-10">
-                            <div class="flex">
-                                <button data-view="daily" class="flex-1 py-3 font-semibold ${state.view === 'daily' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}">
+                        <div class="bg-white shadow-lg sticky top-0 z-10" style="border-radius: 0 0 20px 20px;">
+                            <div class="flex gap-1 p-2">
+                                <button data-view="daily" class="flex-1 py-3 font-semibold rounded-xl transition-all ${state.view === 'daily' ? 'bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white shadow-lg' : 'bg-transparent text-gray-600 hover:bg-gray-50'}">
                                     Daily
                                 </button>
-                                <button data-view="weekly" class="flex-1 py-3 font-semibold ${state.view === 'weekly' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}">
+                                <button data-view="weekly" class="flex-1 py-3 font-semibold rounded-xl transition-all ${state.view === 'weekly' ? 'bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white shadow-lg' : 'bg-transparent text-gray-600 hover:bg-gray-50'}">
                                     Weekly
                                 </button>
-                                <button data-view="monthly" class="flex-1 py-3 font-semibold ${state.view === 'monthly' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}">
+                                <button data-view="monthly" class="flex-1 py-3 font-semibold rounded-xl transition-all ${state.view === 'monthly' ? 'bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white shadow-lg' : 'bg-transparent text-gray-600 hover:bg-gray-50'}">
                                     Monthly
                                 </button>
-                                <button data-view="summary" class="flex-1 py-3 font-semibold ${state.view === 'summary' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}">
+                                <button data-view="summary" class="flex-1 py-3 font-semibold rounded-xl transition-all ${state.view === 'summary' ? 'bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white shadow-lg' : 'bg-transparent text-gray-600 hover:bg-gray-50'}">
                                     Summary
                                 </button>
                             </div>
@@ -317,21 +410,21 @@
                 });
 
                 return `
-                    <div class="p-4 space-y-6">
+                    <div class="p-4 space-y-6 fade-in">
                         ${isEdit ? `
                             <div class="flex items-center justify-between mb-6">
-                                <button data-action="back" class="text-blue-600 font-semibold text-lg">← Back</button>
-                                <h2 class="text-xl font-bold">${dateStr}</h2>
+                                <button data-action="back" class="text-[#7fd4b8] font-semibold text-lg hover:text-[#6fc4a8] transition-colors">← Back</button>
+                                <h2 class="text-xl font-bold text-gray-800">${dateStr}</h2>
                                 <div class="w-16"></div>
                             </div>
                         ` : `
-                            <h2 class="text-2xl font-bold text-center mb-6">Today's Entry</h2>
+                            <h2 class="text-3xl font-bold text-center mb-6 text-gray-800" style="text-shadow: 0 2px 4px rgba(0,0,0,0.05);">Today's Entry</h2>
                         `}
 
-                        <div data-bg="alcohol" class="p-4 rounded-lg ${tracker.getColor('alcohol', entry.alcohol)}">
-                            <div class="flex items-center mb-2">
-                                <span class="text-3xl mr-3">🍷</span>
-                                <label class="text-lg font-semibold">Alcohol (drinks)</label>
+                        <div data-bg="alcohol" class="card ${tracker.getColor('alcohol', entry.alcohol)}" style="transition: all 0.3s ease;">
+                            <div class="flex items-center mb-3">
+                                <span class="text-4xl mr-3">🍷</span>
+                                <label class="text-xl font-bold text-gray-800">Grey Juice</label>
                             </div>
                             <input
                                 type="number"
@@ -339,16 +432,16 @@
                                 min="0"
                                 data-field="alcohol"
                                 value="${entry.alcohol}"
-                                class="w-full p-3 text-lg border-2 border-gray-300 rounded"
+                                class="w-full p-4 text-xl font-semibold text-gray-800"
                                 placeholder="0"
                             />
-                            <p class="mt-2 text-sm">Green: 0-2 | Yellow: 3-4 | Red: 5+</p>
+                            <p class="mt-3 text-sm text-gray-600">✨ Mint: 0-2 | ☀️ Yellow: 3-4 | 🌸 Coral: 5+</p>
                         </div>
 
-                        <div data-bg="steps" class="p-4 rounded-lg ${tracker.getColor('steps', entry.steps)}">
-                            <div class="flex items-center mb-2">
-                                <span class="text-3xl mr-3">👟</span>
-                                <label class="text-lg font-semibold">Steps</label>
+                        <div data-bg="steps" class="card ${tracker.getColor('steps', entry.steps)}" style="transition: all 0.3s ease;">
+                            <div class="flex items-center mb-3">
+                                <span class="text-4xl mr-3">👟</span>
+                                <label class="text-xl font-bold text-gray-800">Steps</label>
                             </div>
                             <input
                                 type="number"
@@ -356,47 +449,47 @@
                                 min="0"
                                 data-field="steps"
                                 value="${entry.steps}"
-                                class="w-full p-3 text-lg border-2 border-gray-300 rounded"
+                                class="w-full p-4 text-xl font-semibold text-gray-800"
                                 placeholder="0"
                             />
-                            <p class="mt-2 text-sm">Green: 12,500+ | Red: Less than 12,500</p>
+                            <p class="mt-3 text-sm text-gray-600">✨ Mint: 12,500+ | 🌸 Coral: Less than 12,500</p>
                         </div>
 
-                        <div data-bg="workout" class="p-4 rounded-lg ${tracker.getColor('workout', entry.workout)}">
-                            <div class="flex items-center mb-2">
-                                <span class="text-3xl mr-3">💪</span>
-                                <label class="text-lg font-semibold">Workout</label>
+                        <div data-bg="workout" class="card ${tracker.getColor('workout', entry.workout)}" style="transition: all 0.3s ease;">
+                            <div class="flex items-center mb-3">
+                                <span class="text-4xl mr-3">💪</span>
+                                <label class="text-xl font-bold text-gray-800">Workout</label>
                             </div>
                             <div class="flex gap-4">
                                 <button
                                     data-workout="true"
-                                    class="flex-1 p-3 text-lg rounded border-2 ${
+                                    class="workout-btn flex-1 p-4 text-lg font-semibold ${
                                         entry.workout
-                                            ? 'bg-green-600 text-white border-green-700'
-                                            : 'bg-white border-gray-300'
+                                            ? 'active-yes text-gray-800'
+                                            : 'bg-white text-gray-600'
                                     }"
                                 >
                                     Yes ✓
                                 </button>
                                 <button
                                     data-workout="false"
-                                    class="flex-1 p-3 text-lg rounded border-2 ${
+                                    class="workout-btn flex-1 p-4 text-lg font-semibold ${
                                         !entry.workout
-                                            ? 'bg-red-600 text-white border-red-700'
-                                            : 'bg-white border-gray-300'
+                                            ? 'active-no text-gray-800'
+                                            : 'bg-white text-gray-600'
                                     }"
                                 >
                                     No ✗
                                 </button>
                             </div>
-                            <p class="mt-2 text-sm">Green: Yes | Red: No</p>
+                            <p class="mt-3 text-sm text-gray-600">✨ Mint: Yes | 🌸 Coral: No</p>
                         </div>
 
                         <button
                             data-action="save"
-                            class="w-full bg-blue-600 text-white p-4 rounded-lg text-xl font-semibold"
+                            class="btn-primary w-full text-xl"
                         >
-                            Save Entry
+                            💾 Save Entry
                         </button>
                     </div>
                 `;
