@@ -17,7 +17,7 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
             overscroll-behavior: none;
-            background: linear-gradient(135deg, #fef3e2 0%, #fce8f3 100%);
+            background: linear-gradient(135deg, #e8f9f0 0%, #d4f4e3 100%);
         }
 
         /* Custom pastel color palette */
@@ -235,10 +235,17 @@
                     entries: {},
                     currentDate: new Date(),
                     selectedDate: null,
-                    editEntry: { alcohol: '', steps: '', workout: null }
+                    editEntry: { alcohol: '', steps: '', workout: null },
+                    settings: {
+                        alcoholGood: 2,
+                        alcoholPartial: 4,
+                        stepsGoal: 12500,
+                        workoutsPerWeek: 3
+                    }
                 };
                 this.listeners = [];
                 this.loadData();
+                this.loadSettings();
             }
 
             loadData() {
@@ -257,6 +264,25 @@
                     localStorage.setItem('healthTrackerData', JSON.stringify(this.state.entries));
                 } catch (e) {
                     console.error('Error saving data:', e);
+                }
+            }
+
+            loadSettings() {
+                try {
+                    const saved = localStorage.getItem('healthTrackerSettings');
+                    if (saved) {
+                        this.state.settings = { ...this.state.settings, ...JSON.parse(saved) };
+                    }
+                } catch (e) {
+                    console.error('Error loading settings:', e);
+                }
+            }
+
+            saveSettings() {
+                try {
+                    localStorage.setItem('healthTrackerSettings', JSON.stringify(this.state.settings));
+                } catch (e) {
+                    console.error('Error saving settings:', e);
                 }
             }
 
@@ -289,14 +315,13 @@
                     case 'alcohol':
                         const drinks = parseInt(value);
                         if (isNaN(drinks)) return 'bg-gray-200';
-                        if (drinks >= 0 && drinks <= 2) return 'bg-[#b8f4d4]'; // Mint
-                        if (drinks >= 3 && drinks <= 4) return 'bg-[#fff4b8]'; // Soft yellow
-                        if (drinks >= 5) return 'bg-[#ffb8b8]'; // Coral
-                        return 'bg-gray-200';
+                        if (drinks >= 0 && drinks <= this.state.settings.alcoholGood) return 'bg-[#b8f4d4]'; // Mint
+                        if (drinks <= this.state.settings.alcoholPartial) return 'bg-[#fff4b8]'; // Soft yellow
+                        return 'bg-[#ffb8b8]'; // Coral
                     case 'steps':
                         const steps = parseInt(value);
                         if (isNaN(steps)) return 'bg-gray-200';
-                        return steps >= 12500 ? 'bg-[#b8f4d4]' : 'bg-[#ffb8b8]'; // Mint or Coral
+                        return steps >= this.state.settings.stepsGoal ? 'bg-[#b8f4d4]' : 'bg-[#ffb8b8]';
                     case 'workout':
                         // Check if value is explicitly false (not just falsy)
                         if (value === false) return 'bg-[#ffb8b8]'; // Coral for No
@@ -338,7 +363,9 @@
             isPerfectDay(entry) {
                 const drinks = parseInt(entry.alcohol);
                 const steps = parseInt(entry.steps);
-                return (drinks >= 0 && drinks <= 2) && steps >= 12500 && entry.workout;
+                return (drinks >= 0 && drinks <= this.state.settings.alcoholGood) &&
+                       steps >= this.state.settings.stepsGoal &&
+                       entry.workout;
             }
 
             celebrate() {
@@ -355,6 +382,31 @@
                         setTimeout(() => confetti.remove(), 3000);
                     }, i * 30);
                 }
+            }
+
+            getCurrentStreak() {
+                let streak = 0;
+                let checkDate = new Date();
+                checkDate.setHours(0, 0, 0, 0);
+
+                // Count consecutive days with entries (including today even if not yet filled)
+                while (true) {
+                    const dateKey = this.formatDate(checkDate);
+                    if (this.state.entries[dateKey]) {
+                        streak++;
+                        checkDate.setDate(checkDate.getDate() - 1);
+                    } else {
+                        // If checking today and no entry yet, don't break the streak
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        if (checkDate.getTime() === today.getTime() && streak === 0) {
+                            checkDate.setDate(checkDate.getDate() - 1);
+                            continue;
+                        }
+                        break;
+                    }
+                }
+                return streak;
             }
 
             checkMilestones() {
@@ -521,6 +573,9 @@
                                 <button data-view="summary" class="flex-1 py-3 font-semibold rounded-xl transition-all ${state.view === 'summary' ? 'bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white shadow-lg' : 'bg-transparent text-gray-600 hover:bg-gray-50'}">
                                     Summary
                                 </button>
+                                <button data-view="settings" class="flex-1 py-3 font-semibold rounded-xl transition-all ${state.view === 'settings' ? 'bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white shadow-lg' : 'bg-transparent text-gray-600 hover:bg-gray-50'}">
+                                    ⚙️
+                                </button>
                             </div>
                         </div>
 
@@ -544,6 +599,8 @@
                         return renderMonthlyView(state);
                     case 'summary':
                         return renderSummaryView(state);
+                    case 'settings':
+                        return renderSettingsView(state);
                     default:
                         return '';
                 }
@@ -579,8 +636,24 @@
                     </div>
                 ` : '';
 
+                // Calculate current streak
+                const currentStreak = tracker.getCurrentStreak();
+                const streakHtml = currentStreak > 0 ? `
+                    <div class="card bg-gradient-to-r from-[#ffd4b8] to-[#ffb8d4] mb-4">
+                        <div class="flex items-center justify-center gap-3">
+                            <span class="text-4xl">🔥</span>
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-gray-800">${currentStreak}</div>
+                                <div class="text-sm font-semibold text-gray-700">Day Streak!</div>
+                            </div>
+                        </div>
+                        <p class="text-center text-xs text-gray-600 mt-2">Keep it up! Track daily to maintain your streak</p>
+                    </div>
+                ` : '';
+
                 return `
                     <div class="p-4 space-y-6 fade-in">
+                        ${!isEdit ? streakHtml : ''}
                         ${milestoneHtml}
                         ${isEdit ? `
                             <div class="flex items-center justify-between mb-6">
@@ -618,7 +691,7 @@
                                 class="w-full p-4 text-xl font-semibold text-gray-800"
                                 placeholder="0"
                             />
-                            <p class="mt-3 text-sm text-gray-600">🎯 Met: 0-2 | 🙃 Partial: 3-4 | 👎 Unmet: 5+</p>
+                            <p class="mt-3 text-sm text-gray-600">🎯 Met: 0-${state.settings.alcoholGood} | 🙃 Partial: ${state.settings.alcoholGood + 1}-${state.settings.alcoholPartial} | 👎 Unmet: ${state.settings.alcoholPartial + 1}+</p>
                         </div>
 
                         <div data-bg="steps" class="card ${tracker.getColor('steps', entry.steps)}" style="transition: all 0.3s ease;">
@@ -636,7 +709,7 @@
                                 class="w-full p-4 text-xl font-semibold text-gray-800"
                                 placeholder="0"
                             />
-                            <p class="mt-3 text-sm text-gray-600">🎯 Met: 12,500+ | 👎 Unmet: Less than 12,500</p>
+                            <p class="mt-3 text-sm text-gray-600">🎯 Met: ${state.settings.stepsGoal.toLocaleString()}+ | 👎 Unmet: Less than ${state.settings.stepsGoal.toLocaleString()}</p>
                         </div>
 
                         <div data-bg="workout" class="card ${tracker.getColor('workout', entry.workout)}" style="transition: all 0.3s ease;">
@@ -1257,6 +1330,105 @@
                 `;
             }
 
+            function renderSettingsView(state) {
+                const settings = state.settings;
+
+                return `
+                    <div class="p-4 space-y-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">⚙️ Settings</h2>
+
+                        <div class="card">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4">🎯 Goal Thresholds</h3>
+                            <p class="text-sm text-gray-600 mb-4">Customize your health goals. Changes apply immediately to all views.</p>
+
+                            <div class="space-y-4">
+                                <!-- Grey Juice Goals -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        🍷 Grey Juice (Alcohol)
+                                    </label>
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="text-xs text-gray-600">🎯 Met (0 to this many drinks)</label>
+                                            <input
+                                                type="number"
+                                                id="alcoholGood"
+                                                value="${settings.alcoholGood}"
+                                                min="0"
+                                                max="10"
+                                                class="w-full p-3 mt-1 text-lg font-semibold text-gray-800 border-2 border-gray-200 rounded-xl focus:border-[#a8e6cf] focus:outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="text-xs text-gray-600">🙃 Partial (up to this many drinks)</label>
+                                            <input
+                                                type="number"
+                                                id="alcoholPartial"
+                                                value="${settings.alcoholPartial}"
+                                                min="0"
+                                                max="20"
+                                                class="w-full p-3 mt-1 text-lg font-semibold text-gray-800 border-2 border-gray-200 rounded-xl focus:border-[#a8e6cf] focus:outline-none"
+                                            />
+                                        </div>
+                                        <p class="text-xs text-gray-500">👎 Unmet = anything above partial threshold</p>
+                                    </div>
+                                </div>
+
+                                <!-- Steps Goal -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        👟 Steps Goal
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="stepsGoal"
+                                        value="${settings.stepsGoal}"
+                                        min="1000"
+                                        max="50000"
+                                        step="500"
+                                        class="w-full p-3 text-lg font-semibold text-gray-800 border-2 border-gray-200 rounded-xl focus:border-[#a8e6cf] focus:outline-none"
+                                    />
+                                    <p class="text-xs text-gray-500 mt-1">🎯 Met = at or above this number</p>
+                                </div>
+
+                                <!-- Workouts Goal -->
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        💪 Workouts Per Week
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="workoutsPerWeek"
+                                        value="${settings.workoutsPerWeek}"
+                                        min="1"
+                                        max="7"
+                                        class="w-full p-3 text-lg font-semibold text-gray-800 border-2 border-gray-200 rounded-xl focus:border-[#a8e6cf] focus:outline-none"
+                                    />
+                                    <p class="text-xs text-gray-500 mt-1">🎯 Met = this many workouts or more per week</p>
+                                </div>
+                            </div>
+
+                            <button
+                                data-action="save-settings"
+                                class="btn-primary w-full text-xl mt-6"
+                            >
+                                💾 Save Settings
+                            </button>
+                        </div>
+
+                        <div class="card bg-[#f8f0ff]">
+                            <h3 class="text-sm font-bold text-gray-700 mb-2">ℹ️ About Settings</h3>
+                            <ul class="text-xs text-gray-600 space-y-1">
+                                <li>• Settings are saved to your device</li>
+                                <li>• Changes affect color coding and "perfect day" calculations</li>
+                                <li>• Adjust goals to match your personal health targets</li>
+                                <li>• Reset to defaults: Grey Juice 0-2, Steps 12,500, Workouts 3/week</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }
+
             function attachEventListeners() {
                 // View navigation
                 document.querySelectorAll('[data-view]').forEach(btn => {
@@ -1347,6 +1519,30 @@
                     deleteBtn.addEventListener('click', (e) => {
                         const dateKey = e.target.dataset.date;
                         tracker.deleteEntry(dateKey);
+                    });
+                }
+
+                // Save settings button
+                const saveSettingsBtn = document.querySelector('[data-action="save-settings"]');
+                if (saveSettingsBtn) {
+                    saveSettingsBtn.addEventListener('click', () => {
+                        const alcoholGood = parseInt(document.getElementById('alcoholGood').value);
+                        const alcoholPartial = parseInt(document.getElementById('alcoholPartial').value);
+                        const stepsGoal = parseInt(document.getElementById('stepsGoal').value);
+                        const workoutsPerWeek = parseInt(document.getElementById('workoutsPerWeek').value);
+
+                        tracker.setState({
+                            settings: {
+                                alcoholGood,
+                                alcoholPartial,
+                                stepsGoal,
+                                workoutsPerWeek
+                            }
+                        });
+                        tracker.saveSettings();
+
+                        // Show confirmation
+                        alert('✅ Settings saved successfully!');
                     });
                 }
 
