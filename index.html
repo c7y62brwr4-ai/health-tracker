@@ -589,7 +589,17 @@
                                 <button data-action="delete-entry" data-date="${dateKey}" class="text-red-500 font-semibold text-lg hover:text-red-600 transition-colors">🗑️</button>
                             </div>
                         ` : `
-                            <h2 class="text-3xl font-bold text-center mb-6 text-gray-800" style="text-shadow: 0 2px 4px rgba(0,0,0,0.05);">Today's Entry</h2>
+                            <div class="card mb-4">
+                                <label class="block text-sm font-semibold text-gray-600 mb-2">Select Date</label>
+                                <input
+                                    type="date"
+                                    id="datePicker"
+                                    value="${tracker.formatDate(date)}"
+                                    max="${tracker.formatDate(new Date())}"
+                                    class="w-full p-3 text-lg font-semibold text-gray-800 border-2 border-gray-200 rounded-xl focus:border-[#a8e6cf] focus:outline-none transition-colors"
+                                />
+                                <p class="text-xs text-gray-500 mt-2">Choose any date to add or edit data</p>
+                            </div>
                             ${encouragement}
                         `}
 
@@ -608,7 +618,7 @@
                                 class="w-full p-4 text-xl font-semibold text-gray-800"
                                 placeholder="0"
                             />
-                            <p class="mt-3 text-sm text-gray-600">✨ Mint: 0-2 | ☀️ Yellow: 3-4 | 🌸 Coral: 5+</p>
+                            <p class="mt-3 text-sm text-gray-600">🎯 Met: 0-2 | 🙃 Partial: 3-4 | 👎 Unmet: 5+</p>
                         </div>
 
                         <div data-bg="steps" class="card ${tracker.getColor('steps', entry.steps)}" style="transition: all 0.3s ease;">
@@ -626,7 +636,7 @@
                                 class="w-full p-4 text-xl font-semibold text-gray-800"
                                 placeholder="0"
                             />
-                            <p class="mt-3 text-sm text-gray-600">✨ Mint: 12,500+ | 🌸 Coral: Less than 12,500</p>
+                            <p class="mt-3 text-sm text-gray-600">🎯 Met: 12,500+ | 👎 Unmet: Less than 12,500</p>
                         </div>
 
                         <div data-bg="workout" class="card ${tracker.getColor('workout', entry.workout)}" style="transition: all 0.3s ease;">
@@ -656,7 +666,7 @@
                                     No ✗
                                 </button>
                             </div>
-                            <p class="mt-3 text-sm text-gray-600">✨ Mint: Yes | 🌸 Coral: No</p>
+                            <p class="mt-3 text-sm text-gray-600">🎯 Met: Yes | 👎 Unmet: No</p>
                         </div>
 
                         <button
@@ -708,10 +718,9 @@
                                 return `
                                     <div class="flex flex-col">
                                         <div class="calendar-day-header">${dayNames[idx]}</div>
-                                        <button
-                                            data-edit-date="${dateKey}"
+                                        <div
                                             data-tooltip="${tooltipData}"
-                                            class="calendar-day bg-gray-100 hover:bg-gray-200 cursor-pointer ${isToday ? 'ring-2 ring-[#7fd4b8]' : ''}"
+                                            class="calendar-day bg-gray-100 ${isToday ? 'ring-2 ring-[#7fd4b8]' : ''}"
                                             style="position: relative;"
                                         >
                                             <div class="font-semibold mb-1">${date.getDate()}</div>
@@ -721,13 +730,75 @@
                                                     <div class="emoji-indicator ${tracker.getColor('steps', entry.steps)} rounded px-1" style="flex-shrink: 0;">👟</div>
                                                     <div class="emoji-indicator ${tracker.getColor('workout', entry.workout)} rounded px-1" style="flex-shrink: 0;">💪</div>
                                                 </div>
-                                            ` : '<div class="text-gray-400 text-xs mt-1">Tap to add</div>'}
-                                        </button>
+                                            ` : '<div class="text-gray-400 text-xs mt-1">No data</div>'}
+                                        </div>
                                     </div>
                                 `;
                             }).join('')}
                             <div id="tooltip" class="day-tooltip"></div>
                         </div>
+
+                        <!-- Weekly Summary Metrics -->
+                        ${(() => {
+                            const weekEntries = days.map(d => state.entries[tracker.formatDate(d)]).filter(e => e);
+                            const daysWithData = weekEntries.length;
+
+                            if (daysWithData === 0) {
+                                return '<div class="card mt-6 text-center text-gray-500">No data for this week yet</div>';
+                            }
+
+                            // Calculate averages and stats
+                            const totalDrinks = weekEntries.reduce((sum, e) => sum + (parseInt(e.alcohol) || 0), 0);
+                            const avgDrinks = (totalDrinks / daysWithData).toFixed(1);
+
+                            const totalSteps = weekEntries.reduce((sum, e) => sum + (parseInt(e.steps) || 0), 0);
+                            const avgSteps = Math.round(totalSteps / daysWithData).toLocaleString();
+
+                            const workoutCount = weekEntries.filter(e => e.workout === true).length;
+                            const workoutGoalMet = workoutCount >= 3;
+
+                            const perfectDays = weekEntries.filter(e => tracker.isPerfectDay(e)).length;
+
+                            const goodAlcoholDays = weekEntries.filter(e => parseInt(e.alcohol) <= 2).length;
+                            const goodStepDays = weekEntries.filter(e => parseInt(e.steps) >= 12500).length;
+
+                            return `
+                                <div class="mt-6 space-y-4">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-3">📊 This Week's Summary</h3>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="card bg-gradient-to-br from-[#b8f4d4] to-[#a8e6cf]">
+                                            <div class="text-2xl font-bold text-gray-800">${perfectDays}</div>
+                                            <div class="text-sm text-gray-700">Perfect Day${perfectDays !== 1 ? 's' : ''}</div>
+                                        </div>
+
+                                        <div class="card bg-gradient-to-br from-[#ffd4b8] to-[#ffb8d4]">
+                                            <div class="text-2xl font-bold text-gray-800">${daysWithData}/7</div>
+                                            <div class="text-sm text-gray-700">Days Logged</div>
+                                        </div>
+
+                                        <div class="card">
+                                            <div class="text-lg font-bold text-gray-800">🍷 ${avgDrinks}</div>
+                                            <div class="text-xs text-gray-600">Avg Grey Juice/day</div>
+                                            <div class="text-xs mt-1 ${goodAlcoholDays >= 5 ? 'text-[#7fd4b8]' : 'text-gray-500'}">${goodAlcoholDays} good days</div>
+                                        </div>
+
+                                        <div class="card">
+                                            <div class="text-lg font-bold text-gray-800">👟 ${avgSteps}</div>
+                                            <div class="text-xs text-gray-600">Avg Steps/day</div>
+                                            <div class="text-xs mt-1 ${goodStepDays >= 5 ? 'text-[#7fd4b8]' : 'text-gray-500'}">${goodStepDays} goal days</div>
+                                        </div>
+
+                                        <div class="card col-span-2 ${workoutGoalMet ? 'bg-gradient-to-r from-[#b8f4d4] to-[#d4e4ff]' : ''}">
+                                            <div class="text-lg font-bold text-gray-800">💪 ${workoutCount} Workout${workoutCount !== 1 ? 's' : ''}</div>
+                                            <div class="text-sm ${workoutGoalMet ? 'text-gray-700 font-semibold' : 'text-gray-600'}">
+                                                ${workoutGoalMet ? '🎉 Goal met! (3+ per week)' : `Goal: 3 per week (${3 - workoutCount} more needed)`}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        })()}
                     </div>
                 `;
             }
@@ -789,23 +860,123 @@
                                     const isToday = dateKey === todayKey;
 
                                     return `
-                                        <button
-                                            data-edit-date="${dateKey}"
-                                            class="calendar-day bg-gray-100 hover:bg-gray-200 cursor-pointer ${isToday ? 'ring-2 ring-[#7fd4b8]' : ''}"
+                                        <div
+                                            class="calendar-day bg-gray-100 ${isToday ? 'ring-2 ring-[#7fd4b8]' : ''}"
                                         >
                                             <div class="font-semibold">${day}</div>
                                             ${entry ? `
-                                                <div class="flex gap-1 mt-1">
+                                                <div class="flex gap-1 mt-1 justify-center">
                                                     <span class="text-xs ${tracker.getColor('alcohol', entry.alcohol)} rounded px-1">🍷</span>
                                                     <span class="text-xs ${tracker.getColor('steps', entry.steps)} rounded px-1">👟</span>
                                                     <span class="text-xs ${tracker.getColor('workout', entry.workout)} rounded px-1">💪</span>
                                                 </div>
                                             ` : '<div class="text-gray-400 text-xs mt-1">-</div>'}
-                                        </button>
+                                        </div>
                                     `;
                                 }).join('')}
                             </div>
                         `).join('')}
+
+                        <!-- Monthly Summary Metrics -->
+                        ${(() => {
+                            // Get all entries for this month
+                            const monthEntries = [];
+                            const daysInMonth = new Date(year, month + 1, 0).getDate();
+                            for (let day = 1; day <= daysInMonth; day++) {
+                                const date = new Date(year, month, day);
+                                const entry = state.entries[tracker.formatDate(date)];
+                                if (entry) monthEntries.push(entry);
+                            }
+
+                            const daysWithData = monthEntries.length;
+
+                            if (daysWithData === 0) {
+                                return '<div class="card mt-6 text-center text-gray-500">No data for this month yet</div>';
+                            }
+
+                            // Calculate monthly stats
+                            const totalDrinks = monthEntries.reduce((sum, e) => sum + (parseInt(e.alcohol) || 0), 0);
+                            const avgDrinks = (totalDrinks / daysWithData).toFixed(1);
+
+                            const totalSteps = monthEntries.reduce((sum, e) => sum + (parseInt(e.steps) || 0), 0);
+                            const avgSteps = Math.round(totalSteps / daysWithData).toLocaleString();
+
+                            const perfectDays = monthEntries.filter(e => tracker.isPerfectDay(e)).length;
+                            const perfectPercent = Math.round((perfectDays / daysWithData) * 100);
+
+                            const goodAlcoholDays = monthEntries.filter(e => parseInt(e.alcohol) <= 2).length;
+                            const alcoholPercent = Math.round((goodAlcoholDays / daysWithData) * 100);
+
+                            const goodStepDays = monthEntries.filter(e => parseInt(e.steps) >= 12500).length;
+                            const stepsPercent = Math.round((goodStepDays / daysWithData) * 100);
+
+                            // Count workouts by week
+                            const weeklyWorkouts = {};
+                            for (let day = 1; day <= daysInMonth; day++) {
+                                const date = new Date(year, month, day);
+                                const dateKey = tracker.formatDate(date);
+                                const entry = state.entries[dateKey];
+                                if (entry && entry.workout) {
+                                    const weekStart = new Date(date);
+                                    weekStart.setDate(date.getDate() - date.getDay());
+                                    const weekKey = tracker.formatDate(weekStart);
+                                    weeklyWorkouts[weekKey] = (weeklyWorkouts[weekKey] || 0) + 1;
+                                }
+                            }
+                            const weeksGoalMet = Object.values(weeklyWorkouts).filter(count => count >= 3).length;
+                            const totalWeeks = Math.ceil(daysInMonth / 7);
+                            const workoutPercent = Math.round((weeksGoalMet / totalWeeks) * 100);
+
+                            return `
+                                <div class="mt-6 space-y-4">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-3">📊 This Month's Summary</h3>
+
+                                    <div class="card bg-gradient-to-br from-[#b8f4d4] to-[#a8e6cf]">
+                                        <div class="flex justify-between items-center">
+                                            <div>
+                                                <div class="text-3xl font-bold text-gray-800">${perfectDays}</div>
+                                                <div class="text-sm text-gray-700">Perfect Days</div>
+                                            </div>
+                                            <div class="text-4xl font-bold text-gray-800">${perfectPercent}%</div>
+                                        </div>
+                                        <div class="mt-2 text-xs text-gray-600">${daysWithData} of ${daysInMonth} days logged</div>
+                                    </div>
+
+                                    <div class="grid grid-cols-3 gap-3">
+                                        <div class="card text-center">
+                                            <div class="text-2xl">🍷</div>
+                                            <div class="text-lg font-bold text-gray-800">${alcoholPercent}%</div>
+                                            <div class="text-xs text-gray-600">Goal days</div>
+                                            <div class="text-xs text-gray-500 mt-1">${avgDrinks} avg</div>
+                                        </div>
+
+                                        <div class="card text-center">
+                                            <div class="text-2xl">👟</div>
+                                            <div class="text-lg font-bold text-gray-800">${stepsPercent}%</div>
+                                            <div class="text-xs text-gray-600">Goal days</div>
+                                            <div class="text-xs text-gray-500 mt-1">${avgSteps} avg</div>
+                                        </div>
+
+                                        <div class="card text-center">
+                                            <div class="text-2xl">💪</div>
+                                            <div class="text-lg font-bold text-gray-800">${workoutPercent}%</div>
+                                            <div class="text-xs text-gray-600">Weeks met</div>
+                                            <div class="text-xs text-gray-500 mt-1">${weeksGoalMet}/${totalWeeks} weeks</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card">
+                                        <div class="text-sm font-semibold text-gray-700 mb-2">🎯 Monthly Trends</div>
+                                        <div class="space-y-1 text-xs text-gray-600">
+                                            <div>• Best: ${perfectDays > 0 ? `${perfectDays} perfect day${perfectDays !== 1 ? 's' : ''}` : 'Keep going!'}</div>
+                                            <div>• Grey Juice: ${goodAlcoholDays} days at goal (0-2 drinks)</div>
+                                            <div>• Steps: ${goodStepDays} days hit 12,500+ steps</div>
+                                            <div>• Workouts: ${weeksGoalMet} week${weeksGoalMet !== 1 ? 's' : ''} with 3+ workouts</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        })()}
                     </div>
                 `;
             }
@@ -1120,11 +1291,21 @@
                     });
                 });
 
+                // Date picker
+                const datePicker = document.getElementById('datePicker');
+                if (datePicker) {
+                    datePicker.addEventListener('change', (e) => {
+                        const selectedDate = new Date(e.target.value + 'T12:00:00');
+                        tracker.editDate(selectedDate);
+                    });
+                }
+
                 // Save button
                 const saveBtn = document.querySelector('[data-action="save"]');
                 if (saveBtn) {
                     saveBtn.addEventListener('click', () => {
-                        const date = tracker.state.view === 'edit' ? tracker.state.selectedDate : new Date();
+                        const datePicker = document.getElementById('datePicker');
+                        const date = datePicker ? new Date(datePicker.value + 'T12:00:00') : new Date();
                         tracker.saveEntry(date);
                     });
                 }
@@ -1240,15 +1421,7 @@
             tracker.subscribe(render);
             render();
 
-            // Set up event delegation for edit date buttons (only once)
-            container.addEventListener('click', (e) => {
-                const editDateBtn = e.target.closest('[data-edit-date]');
-                if (editDateBtn) {
-                    const dateStr = editDateBtn.dataset.editDate;
-                    const date = new Date(dateStr + 'T12:00:00');
-                    tracker.editDate(date);
-                }
-            });
+            // Calendar days are now view-only - no click functionality needed
         }
 
         // Initialize app
