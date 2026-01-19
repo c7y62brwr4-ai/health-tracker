@@ -216,6 +216,38 @@
                     this.setState({ view });
                 }
             }
+
+            exportData() {
+                const dataStr = JSON.stringify(this.state.entries, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `health-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                alert('✅ Data exported! Save this file somewhere safe.');
+            }
+
+            importData(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        // Merge with existing data (imported data takes precedence)
+                        this.state.entries = { ...this.state.entries, ...importedData };
+                        this.saveData();
+                        this.setState({ entries: this.state.entries });
+                        alert('✅ Data imported successfully!');
+                    } catch (error) {
+                        alert('❌ Error importing data. Please check the file.');
+                        console.error('Import error:', error);
+                    }
+                };
+                reader.readAsText(file);
+            }
         }
 
         const tracker = new HealthTracker();
@@ -509,26 +541,47 @@
 
             function renderSummaryView(state) {
                 const allDates = Object.keys(state.entries).sort().reverse();
-                const last30Days = allDates.slice(0, 30);
+
+                // Get current year entries
+                const currentYear = new Date().getFullYear();
+                const yearDates = allDates.filter(date => {
+                    return new Date(date).getFullYear() === currentYear;
+                });
 
                 let alcoholGreen = 0, alcoholYellow = 0, alcoholRed = 0;
                 let stepsGreen = 0, stepsRed = 0;
                 let workoutYes = 0, workoutNo = 0;
+                let allThreeGoals = 0;
 
-                last30Days.forEach(date => {
+                yearDates.forEach(date => {
                     const entry = state.entries[date];
                     const drinks = parseInt(entry.alcohol);
-                    if (drinks >= 0 && drinks <= 2) alcoholGreen++;
+                    const alcoholSuccess = drinks >= 0 && drinks <= 2;
+                    if (alcoholSuccess) alcoholGreen++;
                     else if (drinks >= 3 && drinks <= 4) alcoholYellow++;
                     else if (drinks >= 5) alcoholRed++;
 
                     const steps = parseInt(entry.steps);
-                    if (steps >= 12500) stepsGreen++;
+                    const stepsSuccess = steps >= 12500;
+                    if (stepsSuccess) stepsGreen++;
                     else stepsRed++;
 
-                    if (entry.workout) workoutYes++;
+                    const workoutSuccess = entry.workout;
+                    if (workoutSuccess) workoutYes++;
                     else workoutNo++;
+
+                    // Count days where all three goals were met
+                    if (alcoholSuccess && stepsSuccess && workoutSuccess) {
+                        allThreeGoals++;
+                    }
                 });
+
+                // Calculate percentages
+                const totalDays = yearDates.length;
+                const alcoholPercent = totalDays > 0 ? Math.round((alcoholGreen / totalDays) * 100) : 0;
+                const stepsPercent = totalDays > 0 ? Math.round((stepsGreen / totalDays) * 100) : 0;
+                const workoutPercent = totalDays > 0 ? Math.round((workoutYes / totalDays) * 100) : 0;
+                const allThreePercent = totalDays > 0 ? Math.round((allThreeGoals / totalDays) * 100) : 0;
 
                 let longestStreak = 0;
                 let streakCount = 0;
@@ -553,12 +606,40 @@
 
                 return `
                     <div class="p-4 space-y-6">
-                        <h2 class="text-2xl font-bold text-center mb-6">Summary (Last 30 Days)</h2>
+                        <h2 class="text-2xl font-bold text-center mb-6">${currentYear} Summary</h2>
+
+                        <div class="bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-lg shadow-lg text-white">
+                            <h3 class="text-2xl font-bold text-center mb-4">🎯 All Goals Achievement</h3>
+                            <div class="text-center">
+                                <div class="text-6xl font-bold mb-2">${allThreePercent}%</div>
+                                <p class="text-lg">Days you hit all three goals!</p>
+                                <p class="text-sm mt-2 opacity-90">${allThreeGoals} out of ${totalDays} days</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold text-lg">📦 Backup Your Data</h3>
+                            </div>
+                            <p class="text-sm text-gray-700 mb-3">Save your data to prevent loss if you clear browser data or switch devices.</p>
+                            <div class="flex gap-2">
+                                <button data-action="export" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded font-semibold">
+                                    💾 Export Data
+                                </button>
+                                <button data-action="import" class="flex-1 bg-green-600 text-white px-4 py-2 rounded font-semibold">
+                                    📥 Import Data
+                                </button>
+                            </div>
+                            <input type="file" id="importFile" accept=".json" style="display: none;" />
+                        </div>
 
                         <div class="bg-white p-4 rounded-lg shadow">
-                            <div class="flex items-center mb-3">
-                                <span class="text-3xl mr-3">🍷</span>
-                                <h3 class="text-xl font-bold">Alcohol Intake</h3>
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center">
+                                    <span class="text-3xl mr-3">🍷</span>
+                                    <h3 class="text-xl font-bold">Alcohol Intake</h3>
+                                </div>
+                                <div class="text-2xl font-bold text-green-600">${alcoholPercent}%</div>
                             </div>
                             <div class="space-y-2">
                                 <div class="flex justify-between items-center">
@@ -577,9 +658,12 @@
                         </div>
 
                         <div class="bg-white p-4 rounded-lg shadow">
-                            <div class="flex items-center mb-3">
-                                <span class="text-3xl mr-3">👟</span>
-                                <h3 class="text-xl font-bold">Step Goals</h3>
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center">
+                                    <span class="text-3xl mr-3">👟</span>
+                                    <h3 class="text-xl font-bold">Step Goals</h3>
+                                </div>
+                                <div class="text-2xl font-bold text-green-600">${stepsPercent}%</div>
                             </div>
                             <div class="space-y-2">
                                 <div class="flex justify-between items-center">
@@ -590,19 +674,16 @@
                                     <span>Below Goal</span>
                                     <span class="bg-red-400 px-3 py-1 rounded font-bold">${stepsRed} days</span>
                                 </div>
-                                <div class="mt-2 pt-2 border-t">
-                                    <span class="font-semibold">Success Rate: </span>
-                                    <span class="text-lg font-bold">
-                                        ${stepsGreen + stepsRed > 0 ? Math.round((stepsGreen / (stepsGreen + stepsRed)) * 100) : 0}%
-                                    </span>
-                                </div>
                             </div>
                         </div>
 
                         <div class="bg-white p-4 rounded-lg shadow">
-                            <div class="flex items-center mb-3">
-                                <span class="text-3xl mr-3">💪</span>
-                                <h3 class="text-xl font-bold">Workouts</h3>
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center">
+                                    <span class="text-3xl mr-3">💪</span>
+                                    <h3 class="text-xl font-bold">Workouts</h3>
+                                </div>
+                                <div class="text-2xl font-bold text-green-600">${workoutPercent}%</div>
                             </div>
                             <div class="space-y-2">
                                 <div class="flex justify-between items-center">
@@ -627,7 +708,7 @@
                         </div>
 
                         <div class="text-center text-sm text-gray-600 mt-6">
-                            Total entries logged: ${allDates.length} days
+                            Total entries this year: ${yearDates.length} days
                         </div>
                     </div>
                 `;
@@ -681,6 +762,29 @@
                 if (backBtn) {
                     backBtn.addEventListener('click', () => {
                         tracker.setState({ view: 'daily', selectedDate: null });
+                    });
+                }
+
+                // Export button
+                const exportBtn = document.querySelector('[data-action="export"]');
+                if (exportBtn) {
+                    exportBtn.addEventListener('click', () => {
+                        tracker.exportData();
+                    });
+                }
+
+                // Import button
+                const importBtn = document.querySelector('[data-action="import"]');
+                const importFile = document.getElementById('importFile');
+                if (importBtn && importFile) {
+                    importBtn.addEventListener('click', () => {
+                        importFile.click();
+                    });
+                    importFile.addEventListener('change', (e) => {
+                        if (e.target.files.length > 0) {
+                            tracker.importData(e.target.files[0]);
+                            e.target.value = ''; // Reset file input
+                        }
                     });
                 }
 
