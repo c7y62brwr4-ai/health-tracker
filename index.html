@@ -711,7 +711,7 @@
                                         <button
                                             data-edit-date="${dateKey}"
                                             data-tooltip="${tooltipData}"
-                                            class="calendar-day bg-gray-100 hover:bg-gray-200 cursor-pointer ${isToday ? 'ring-2 ring-blue-500' : ''}"
+                                            class="calendar-day bg-gray-100 hover:bg-gray-200 cursor-pointer ${isToday ? 'ring-2 ring-[#7fd4b8]' : ''}"
                                             style="position: relative;"
                                         >
                                             <div class="font-semibold mb-1">${date.getDate()}</div>
@@ -791,7 +791,7 @@
                                     return `
                                         <button
                                             data-edit-date="${dateKey}"
-                                            class="calendar-day bg-gray-100 hover:bg-gray-200 cursor-pointer ${isToday ? 'ring-2 ring-blue-500' : ''}"
+                                            class="calendar-day bg-gray-100 hover:bg-gray-200 cursor-pointer ${isToday ? 'ring-2 ring-[#7fd4b8]' : ''}"
                                         >
                                             <div class="font-semibold">${day}</div>
                                             ${entry ? `
@@ -947,11 +947,11 @@
                 let weekComparison = '';
                 if (lastWeekWorkouts > 0) {
                     if (currentWeekWorkouts > lastWeekWorkouts) {
-                        weekComparison = `<span class="text-green-600">📈 +${currentWeekWorkouts - lastWeekWorkouts} vs last week!</span>`;
+                        weekComparison = `<span class="text-[#7fd4b8]">📈 +${currentWeekWorkouts - lastWeekWorkouts} vs last week!</span>`;
                     } else if (currentWeekWorkouts < lastWeekWorkouts) {
                         weekComparison = `<span class="text-orange-600">📉 ${currentWeekWorkouts - lastWeekWorkouts} vs last week</span>`;
                     } else {
-                        weekComparison = `<span class="text-blue-600">➡️ Same as last week</span>`;
+                        weekComparison = `<span class="text-[#a8c4e8]">➡️ Same as last week</span>`;
                     }
                 }
 
@@ -988,16 +988,16 @@
                             ${weekComparison ? `<div class="mt-3 pt-3 border-t border-gray-300 text-center font-semibold">${weekComparison}</div>` : ''}
                         </div>
 
-                        <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+                        <div class="bg-[#f8f0ff] p-4 rounded-lg border-2 border-[#e8d4ff]">
                             <div class="flex justify-between items-center mb-2">
                                 <h3 class="font-bold text-lg">📦 Backup Your Data</h3>
                             </div>
                             <p class="text-sm text-gray-700 mb-3">Save your data to prevent loss if you clear browser data or switch devices.</p>
                             <div class="flex gap-2">
-                                <button data-action="export" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded font-semibold">
+                                <button data-action="export" class="flex-1 bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white px-4 py-2 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all">
                                     💾 Export Data
                                 </button>
-                                <button data-action="import" class="flex-1 bg-green-600 text-white px-4 py-2 rounded font-semibold">
+                                <button data-action="import" class="flex-1 bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white px-4 py-2 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all">
                                     📥 Import Data
                                 </button>
                             </div>
@@ -1010,20 +1010,20 @@
                                     <span class="text-3xl mr-3">🍷</span>
                                     <h3 class="text-xl font-bold">Alcohol Intake</h3>
                                 </div>
-                                <div class="text-2xl font-bold text-green-600">${alcoholPercent}%</div>
+                                <div class="text-2xl font-bold text-[#7fd4b8]">${alcoholPercent}%</div>
                             </div>
                             <div class="space-y-2">
                                 <div class="flex justify-between items-center">
                                     <span>Green (0-2 drinks)</span>
-                                    <span class="bg-green-400 px-3 py-1 rounded font-bold">${alcoholGreen} days</span>
+                                    <span class="bg-[#b8f4d4] px-3 py-1 rounded font-bold">${alcoholGreen} days</span>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span>Yellow (3-4 drinks)</span>
-                                    <span class="bg-yellow-400 px-3 py-1 rounded font-bold">${alcoholYellow} days</span>
+                                    <span class="bg-[#fff4b8] px-3 py-1 rounded font-bold">${alcoholYellow} days</span>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span>Red (5+ drinks)</span>
-                                    <span class="bg-red-400 px-3 py-1 rounded font-bold">${alcoholRed} days</span>
+                                    <span class="bg-[#ffb8b8] px-3 py-1 rounded font-bold">${alcoholRed} days</span>
                                 </div>
                             </div>
                         </div>
@@ -1034,16 +1034,16 @@
                                     <span class="text-3xl mr-3">👟</span>
                                     <h3 class="text-xl font-bold">Step Goals</h3>
                                 </div>
-                                <div class="text-2xl font-bold text-green-600">${stepsPercent}%</div>
+                                <div class="text-2xl font-bold text-[#7fd4b8]">${stepsPercent}%</div>
                             </div>
                             <div class="space-y-2">
                                 <div class="flex justify-between items-center">
                                     <span>Goal Met (12,500+)</span>
-                                    <span class="bg-green-400 px-3 py-1 rounded font-bold">${stepsGreen} days</span>
+                                    <span class="bg-[#b8f4d4] px-3 py-1 rounded font-bold">${stepsGreen} days</span>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span>Below Goal</span>
-                                    <span class="bg-red-400 px-3 py-1 rounded font-bold">${stepsRed} days</span>
+                                    <span class="bg-[#ffb8b8] px-3 py-1 rounded font-bold">${stepsRed} days</span>
                                 </div>
                             </div>
                         </div>
@@ -1054,26 +1054,26 @@
                                     <span class="text-3xl mr-3">💪</span>
                                     <h3 class="text-xl font-bold">Workouts</h3>
                                 </div>
-                                <div class="text-2xl font-bold text-green-600">${workoutPercent}%</div>
+                                <div class="text-2xl font-bold text-[#7fd4b8]">${workoutPercent}%</div>
                             </div>
                             <p class="text-sm text-gray-600 mb-3">Goal: 3 workouts per week</p>
                             <div class="space-y-2">
                                 <div class="flex justify-between items-center">
                                     <span>Weeks Goal Met (3+)</span>
-                                    <span class="bg-green-400 px-3 py-1 rounded font-bold">${weeksWithWorkoutGoal} weeks</span>
+                                    <span class="bg-[#b8f4d4] px-3 py-1 rounded font-bold">${weeksWithWorkoutGoal} weeks</span>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span>Total Workouts</span>
-                                    <span class="bg-blue-400 px-3 py-1 rounded font-bold">${workoutYes} days</span>
+                                    <span class="bg-[#d4e4ff] px-3 py-1 rounded font-bold">${workoutYes} days</span>
                                 </div>
                                 <div class="mt-2 pt-2 border-t space-y-1">
                                     <div>
                                         <span class="font-semibold">Current Streak: </span>
-                                        <span class="text-lg font-bold text-green-600">${currentStreak} days 🔥</span>
+                                        <span class="text-lg font-bold text-[#7fd4b8]">${currentStreak} days 🔥</span>
                                     </div>
                                     <div>
                                         <span class="font-semibold">Longest Streak: </span>
-                                        <span class="text-lg font-bold text-blue-600">${longestStreak} days 🏆</span>
+                                        <span class="text-lg font-bold text-[#a8c4e8]">${longestStreak} days 🏆</span>
                                     </div>
                                 </div>
                             </div>
@@ -1185,16 +1185,16 @@
                         elem.addEventListener('mouseleave', () => {
                             tooltip.classList.remove('show');
                         });
-                        // Touch support for mobile
+                        // Touch support for mobile - show tooltip briefly
                         elem.addEventListener('touchstart', (e) => {
-                            e.preventDefault();
+                            // Don't prevent default - let the click event fire for navigation
                             tooltip.textContent = e.currentTarget.dataset.tooltip;
                             tooltip.classList.add('show');
                             const rect = e.currentTarget.getBoundingClientRect();
                             tooltip.style.left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2 + 'px';
                             tooltip.style.top = rect.bottom + 8 + 'px';
-                            setTimeout(() => tooltip.classList.remove('show'), 2000);
-                        }, { passive: false });
+                            setTimeout(() => tooltip.classList.remove('show'), 1500);
+                        });
                     });
                 }
 
