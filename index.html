@@ -2,15 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Health Tracker">
     <title>Daily Health Tracker</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            overscroll-behavior: none;
         }
         .calendar-grid {
             display: grid;
@@ -26,6 +30,11 @@
             border-radius: 8px;
             padding: 4px;
             font-size: 12px;
+            border: none;
+            transition: transform 0.1s;
+        }
+        .calendar-day:active {
+            transform: scale(0.95);
         }
         .calendar-day-header {
             font-weight: 600;
@@ -34,73 +43,110 @@
             font-size: 12px;
         }
         .emoji-indicator {
-            font-size: 16px;
+            font-size: 14px;
             margin: 2px;
+        }
+        /* Better portrait mode support */
+        .calendar-day {
+            min-height: 60px;
         }
         @media (min-width: 640px) {
             .calendar-day {
                 font-size: 14px;
+                min-height: 80px;
             }
             .emoji-indicator {
                 font-size: 20px;
             }
+        }
+        @media (orientation: landscape) and (max-width: 900px) {
+            .calendar-day {
+                min-height: 50px;
+                font-size: 10px;
+            }
+            .emoji-indicator {
+                font-size: 14px;
+            }
+        }
+        input[type="number"] {
+            -webkit-appearance: none;
+            appearance: none;
         }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-
-        function HealthTrackerApp() {
-            const [view, setView] = useState('daily'); // daily, weekly, monthly, summary, edit
-            const [entries, setEntries] = useState({});
-            const [currentDate, setCurrentDate] = useState(new Date());
-            const [selectedDate, setSelectedDate] = useState(null); // For editing specific dates
-            const [todayEntry, setTodayEntry] = useState({
-                alcohol: '',
-                steps: '',
-                workout: false
-            });
-
-            // Load data from localStorage on mount
-            useEffect(() => {
-                const saved = localStorage.getItem('healthTrackerData');
-                if (saved) {
-                    setEntries(JSON.parse(saved));
-                }
-            }, []);
-
-            // Save data to localStorage whenever entries change
-            useEffect(() => {
-                localStorage.setItem('healthTrackerData', JSON.stringify(entries));
-            }, [entries]);
-
-            // Load today's entry if it exists
-            useEffect(() => {
-                const todayKey = formatDate(new Date());
-                if (entries[todayKey]) {
-                    setTodayEntry(entries[todayKey]);
-                }
-            }, [entries]);
-
-            function formatDate(date) {
-                return date.toISOString().split('T')[0];
+    <script type="module">
+        // Simple state management
+        class HealthTracker {
+            constructor() {
+                this.state = {
+                    view: 'daily',
+                    entries: {},
+                    currentDate: new Date(),
+                    selectedDate: null,
+                    editEntry: { alcohol: '', steps: '', workout: false }
+                };
+                this.listeners = [];
+                this.loadData();
             }
 
-            function getColor(type, value) {
+            loadData() {
+                try {
+                    const saved = localStorage.getItem('healthTrackerData');
+                    if (saved) {
+                        this.state.entries = JSON.parse(saved);
+                    }
+                } catch (e) {
+                    console.error('Error loading data:', e);
+                }
+            }
+
+            saveData() {
+                try {
+                    localStorage.setItem('healthTrackerData', JSON.stringify(this.state.entries));
+                } catch (e) {
+                    console.error('Error saving data:', e);
+                }
+            }
+
+            setState(updates, skipRender = false) {
+                this.state = { ...this.state, ...updates };
+                if (!skipRender) {
+                    this.listeners.forEach(fn => fn(this.state));
+                }
+            }
+
+            subscribe(fn) {
+                this.listeners.push(fn);
+                return () => {
+                    this.listeners = this.listeners.filter(l => l !== fn);
+                };
+            }
+
+            formatDate(date) {
+                const d = new Date(date);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            getColor(type, value) {
                 if (value === null || value === undefined || value === '') return 'bg-gray-200';
 
                 switch(type) {
                     case 'alcohol':
                         const drinks = parseInt(value);
+                        if (isNaN(drinks)) return 'bg-gray-200';
                         if (drinks >= 0 && drinks <= 2) return 'bg-green-400';
                         if (drinks >= 3 && drinks <= 4) return 'bg-yellow-400';
                         if (drinks >= 5) return 'bg-red-400';
                         return 'bg-gray-200';
                     case 'steps':
                         const steps = parseInt(value);
+                        if (isNaN(steps)) return 'bg-gray-200';
                         return steps >= 12500 ? 'bg-green-400' : 'bg-red-400';
                     case 'workout':
                         return value ? 'bg-green-400' : 'bg-red-400';
@@ -109,244 +155,224 @@
                 }
             }
 
-            function saveEntry(date = null) {
-                const dateKey = date ? formatDate(date) : formatDate(new Date());
-                setEntries({
-                    ...entries,
-                    [dateKey]: {
-                        alcohol: todayEntry.alcohol,
-                        steps: todayEntry.steps,
-                        workout: todayEntry.workout
-                    }
+            saveEntry(date) {
+                const dateKey = this.formatDate(date);
+                this.state.entries[dateKey] = {
+                    alcohol: this.state.editEntry.alcohol,
+                    steps: this.state.editEntry.steps,
+                    workout: this.state.editEntry.workout
+                };
+                this.saveData();
+                this.setState({
+                    entries: this.state.entries,
+                    view: 'daily',
+                    selectedDate: null
                 });
-                // Return to the appropriate view
-                if (view === 'edit') {
-                    setView('daily');
+            }
+
+            editDate(date) {
+                const dateKey = this.formatDate(date);
+                const entry = this.state.entries[dateKey];
+                this.setState({
+                    selectedDate: date,
+                    editEntry: entry ? { ...entry } : { alcohol: '', steps: '', workout: false },
+                    view: 'edit'
+                });
+            }
+
+            updateEntry(field, value) {
+                this.state.editEntry[field] = value;
+                // Don't update backgrounds during typing - only update on blur or workout toggle
+            }
+
+            updateColorBackgrounds() {
+                // Update background colors based on current values without re-rendering
+                const alcoholBg = document.querySelector('[data-bg="alcohol"]');
+                const stepsBg = document.querySelector('[data-bg="steps"]');
+                const workoutBg = document.querySelector('[data-bg="workout"]');
+
+                if (alcoholBg) {
+                    alcoholBg.className = `p-4 rounded-lg ${this.getColor('alcohol', this.state.editEntry.alcohol)}`;
+                }
+                if (stepsBg) {
+                    stepsBg.className = `p-4 rounded-lg ${this.getColor('steps', this.state.editEntry.steps)}`;
+                }
+                if (workoutBg) {
+                    workoutBg.className = `p-4 rounded-lg ${this.getColor('workout', this.state.editEntry.workout)}`;
                 }
             }
 
-            function editDate(date) {
-                setSelectedDate(date);
-                const dateKey = formatDate(date);
-                const entry = entries[dateKey];
-                if (entry) {
-                    setTodayEntry({
-                        alcohol: entry.alcohol,
-                        steps: entry.steps,
-                        workout: entry.workout
+            changeView(view) {
+                if (view === 'daily') {
+                    const today = new Date();
+                    const todayKey = this.formatDate(today);
+                    const entry = this.state.entries[todayKey];
+                    this.setState({
+                        view,
+                        selectedDate: today,
+                        editEntry: entry ? { ...entry } : { alcohol: '', steps: '', workout: false }
                     });
                 } else {
-                    setTodayEntry({
-                        alcohol: '',
-                        steps: '',
-                        workout: false
-                    });
+                    this.setState({ view });
                 }
-                setView('edit');
+            }
+        }
+
+        const tracker = new HealthTracker();
+
+        function App() {
+            const container = document.getElementById('root');
+
+            function render() {
+                const state = tracker.state;
+
+                container.innerHTML = `
+                    <div class="max-w-4xl mx-auto min-h-screen bg-gray-50">
+                        <div class="bg-blue-600 text-white p-4 shadow-lg">
+                            <h1 class="text-2xl font-bold text-center">Health Tracker</h1>
+                        </div>
+
+                        <div class="bg-white shadow-md sticky top-0 z-10">
+                            <div class="flex">
+                                <button data-view="daily" class="flex-1 py-3 font-semibold ${state.view === 'daily' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}">
+                                    Daily
+                                </button>
+                                <button data-view="weekly" class="flex-1 py-3 font-semibold ${state.view === 'weekly' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}">
+                                    Weekly
+                                </button>
+                                <button data-view="monthly" class="flex-1 py-3 font-semibold ${state.view === 'monthly' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}">
+                                    Monthly
+                                </button>
+                                <button data-view="summary" class="flex-1 py-3 font-semibold ${state.view === 'summary' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}">
+                                    Summary
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="pb-6" id="content">
+                            ${renderView(state)}
+                        </div>
+                    </div>
+                `;
+
+                attachEventListeners();
             }
 
-            function handleInputChange(field, value) {
-                setTodayEntry({
-                    ...todayEntry,
-                    [field]: value
+            function renderView(state) {
+                switch(state.view) {
+                    case 'daily':
+                    case 'edit':
+                        return renderEditView(state);
+                    case 'weekly':
+                        return renderWeeklyView(state);
+                    case 'monthly':
+                        return renderMonthlyView(state);
+                    case 'summary':
+                        return renderSummaryView(state);
+                    default:
+                        return '';
+                }
+            }
+
+            function renderEditView(state) {
+                const date = state.view === 'edit' ? state.selectedDate : new Date();
+                const entry = state.editEntry;
+                const isEdit = state.view === 'edit';
+                const dateStr = new Date(date).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
                 });
-            }
 
-            function EditView() {
-                const dateKey = formatDate(selectedDate);
-                const entry = todayEntry;
+                return `
+                    <div class="p-4 space-y-6">
+                        ${isEdit ? `
+                            <div class="flex items-center justify-between mb-6">
+                                <button data-action="back" class="text-blue-600 font-semibold text-lg">← Back</button>
+                                <h2 class="text-xl font-bold">${dateStr}</h2>
+                                <div class="w-16"></div>
+                            </div>
+                        ` : `
+                            <h2 class="text-2xl font-bold text-center mb-6">Today's Entry</h2>
+                        `}
 
-                return (
-                    <div className="p-4 space-y-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <button
-                                onClick={() => {
-                                    setView('daily');
-                                    setSelectedDate(null);
-                                }}
-                                className="text-blue-600 font-semibold"
-                            >
-                                ← Back
-                            </button>
-                            <h2 className="text-xl font-bold">
-                                {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                            </h2>
-                            <div className="w-16"></div>
-                        </div>
-
-                        {/* Alcohol */}
-                        <div className={`p-4 rounded-lg ${getColor('alcohol', entry.alcohol)}`}>
-                            <div className="flex items-center mb-2">
-                                <span className="text-3xl mr-3">🍷</span>
-                                <label className="text-lg font-semibold">Alcohol (drinks)</label>
+                        <div data-bg="alcohol" class="p-4 rounded-lg ${tracker.getColor('alcohol', entry.alcohol)}">
+                            <div class="flex items-center mb-2">
+                                <span class="text-3xl mr-3">🍷</span>
+                                <label class="text-lg font-semibold">Alcohol (drinks)</label>
                             </div>
                             <input
                                 type="number"
+                                inputmode="numeric"
                                 min="0"
-                                value={todayEntry.alcohol}
-                                onChange={(e) => handleInputChange('alcohol', e.target.value)}
-                                className="w-full p-3 text-lg border-2 border-gray-300 rounded"
+                                data-field="alcohol"
+                                value="${entry.alcohol}"
+                                class="w-full p-3 text-lg border-2 border-gray-300 rounded"
                                 placeholder="0"
                             />
-                            <p className="mt-2 text-sm">
-                                Green: 0-2 | Yellow: 3-4 | Red: 5+
-                            </p>
+                            <p class="mt-2 text-sm">Green: 0-2 | Yellow: 3-4 | Red: 5+</p>
                         </div>
 
-                        {/* Steps */}
-                        <div className={`p-4 rounded-lg ${getColor('steps', entry.steps)}`}>
-                            <div className="flex items-center mb-2">
-                                <span className="text-3xl mr-3">👟</span>
-                                <label className="text-lg font-semibold">Steps</label>
+                        <div data-bg="steps" class="p-4 rounded-lg ${tracker.getColor('steps', entry.steps)}">
+                            <div class="flex items-center mb-2">
+                                <span class="text-3xl mr-3">👟</span>
+                                <label class="text-lg font-semibold">Steps</label>
                             </div>
                             <input
                                 type="number"
+                                inputmode="numeric"
                                 min="0"
-                                value={todayEntry.steps}
-                                onChange={(e) => handleInputChange('steps', e.target.value)}
-                                className="w-full p-3 text-lg border-2 border-gray-300 rounded"
+                                data-field="steps"
+                                value="${entry.steps}"
+                                class="w-full p-3 text-lg border-2 border-gray-300 rounded"
                                 placeholder="0"
                             />
-                            <p className="mt-2 text-sm">
-                                Green: 12,500+ | Red: Less than 12,500
-                            </p>
+                            <p class="mt-2 text-sm">Green: 12,500+ | Red: Less than 12,500</p>
                         </div>
 
-                        {/* Workout */}
-                        <div className={`p-4 rounded-lg ${getColor('workout', entry.workout)}`}>
-                            <div className="flex items-center mb-2">
-                                <span className="text-3xl mr-3">💪</span>
-                                <label className="text-lg font-semibold">Workout</label>
+                        <div data-bg="workout" class="p-4 rounded-lg ${tracker.getColor('workout', entry.workout)}">
+                            <div class="flex items-center mb-2">
+                                <span class="text-3xl mr-3">💪</span>
+                                <label class="text-lg font-semibold">Workout</label>
                             </div>
-                            <div className="flex gap-4">
+                            <div class="flex gap-4">
                                 <button
-                                    onClick={() => handleInputChange('workout', true)}
-                                    className={`flex-1 p-3 text-lg rounded border-2 ${
-                                        todayEntry.workout
+                                    data-workout="true"
+                                    class="flex-1 p-3 text-lg rounded border-2 ${
+                                        entry.workout
                                             ? 'bg-green-600 text-white border-green-700'
                                             : 'bg-white border-gray-300'
-                                    }`}
+                                    }"
                                 >
                                     Yes ✓
                                 </button>
                                 <button
-                                    onClick={() => handleInputChange('workout', false)}
-                                    className={`flex-1 p-3 text-lg rounded border-2 ${
-                                        !todayEntry.workout
+                                    data-workout="false"
+                                    class="flex-1 p-3 text-lg rounded border-2 ${
+                                        !entry.workout
                                             ? 'bg-red-600 text-white border-red-700'
                                             : 'bg-white border-gray-300'
-                                    }`}
+                                    }"
                                 >
                                     No ✗
                                 </button>
                             </div>
-                            <p className="mt-2 text-sm">
-                                Green: Yes | Red: No
-                            </p>
+                            <p class="mt-2 text-sm">Green: Yes | Red: No</p>
                         </div>
 
                         <button
-                            onClick={() => saveEntry(selectedDate)}
-                            className="w-full bg-blue-600 text-white p-4 rounded-lg text-xl font-semibold hover:bg-blue-700"
+                            data-action="save"
+                            class="w-full bg-blue-600 text-white p-4 rounded-lg text-xl font-semibold"
                         >
                             Save Entry
                         </button>
                     </div>
-                );
+                `;
             }
 
-            function DailyView() {
-                const todayKey = formatDate(new Date());
-                const entry = entries[todayKey] || todayEntry;
-
-                return (
-                    <div className="p-4 space-y-6">
-                        <h2 className="text-2xl font-bold text-center mb-6">Today's Entry</h2>
-
-                        {/* Alcohol */}
-                        <div className={`p-4 rounded-lg ${getColor('alcohol', entry.alcohol)}`}>
-                            <div className="flex items-center mb-2">
-                                <span className="text-3xl mr-3">🍷</span>
-                                <label className="text-lg font-semibold">Alcohol (drinks)</label>
-                            </div>
-                            <input
-                                type="number"
-                                min="0"
-                                value={todayEntry.alcohol}
-                                onChange={(e) => handleInputChange('alcohol', e.target.value)}
-                                className="w-full p-3 text-lg border-2 border-gray-300 rounded"
-                                placeholder="0"
-                            />
-                            <p className="mt-2 text-sm">
-                                Green: 0-2 | Yellow: 3-4 | Red: 5+
-                            </p>
-                        </div>
-
-                        {/* Steps */}
-                        <div className={`p-4 rounded-lg ${getColor('steps', entry.steps)}`}>
-                            <div className="flex items-center mb-2">
-                                <span className="text-3xl mr-3">👟</span>
-                                <label className="text-lg font-semibold">Steps</label>
-                            </div>
-                            <input
-                                type="number"
-                                min="0"
-                                value={todayEntry.steps}
-                                onChange={(e) => handleInputChange('steps', e.target.value)}
-                                className="w-full p-3 text-lg border-2 border-gray-300 rounded"
-                                placeholder="0"
-                            />
-                            <p className="mt-2 text-sm">
-                                Green: 12,500+ | Red: Less than 12,500
-                            </p>
-                        </div>
-
-                        {/* Workout */}
-                        <div className={`p-4 rounded-lg ${getColor('workout', entry.workout)}`}>
-                            <div className="flex items-center mb-2">
-                                <span className="text-3xl mr-3">💪</span>
-                                <label className="text-lg font-semibold">Workout</label>
-                            </div>
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={() => handleInputChange('workout', true)}
-                                    className={`flex-1 p-3 text-lg rounded border-2 ${
-                                        todayEntry.workout
-                                            ? 'bg-green-600 text-white border-green-700'
-                                            : 'bg-white border-gray-300'
-                                    }`}
-                                >
-                                    Yes ✓
-                                </button>
-                                <button
-                                    onClick={() => handleInputChange('workout', false)}
-                                    className={`flex-1 p-3 text-lg rounded border-2 ${
-                                        !todayEntry.workout
-                                            ? 'bg-red-600 text-white border-red-700'
-                                            : 'bg-white border-gray-300'
-                                    }`}
-                                >
-                                    No ✗
-                                </button>
-                            </div>
-                            <p className="mt-2 text-sm">
-                                Green: Yes | Red: No
-                            </p>
-                        </div>
-
-                        <button
-                            onClick={saveEntry}
-                            className="w-full bg-blue-600 text-white p-4 rounded-lg text-xl font-semibold hover:bg-blue-700"
-                        >
-                            Save Entry
-                        </button>
-                    </div>
-                );
-            }
-
-            function WeeklyView() {
-                const startOfWeek = new Date(currentDate);
-                startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+            function renderWeeklyView(state) {
+                const startOfWeek = new Date(state.currentDate);
+                startOfWeek.setDate(state.currentDate.getDate() - state.currentDate.getDay());
 
                 const days = [];
                 for (let i = 0; i < 7; i++) {
@@ -356,86 +382,64 @@
                 }
 
                 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const todayKey = tracker.formatDate(new Date());
 
-                return (
-                    <div className="p-4">
-                        <div className="flex justify-between items-center mb-4">
-                            <button
-                                onClick={() => {
-                                    const newDate = new Date(currentDate);
-                                    newDate.setDate(currentDate.getDate() - 7);
-                                    setCurrentDate(newDate);
-                                }}
-                                className="bg-blue-500 text-white px-4 py-2 rounded"
-                            >
+                return `
+                    <div class="p-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <button data-action="prev-week" class="bg-blue-500 text-white px-4 py-2 rounded">
                                 ← Prev
                             </button>
-                            <h2 className="text-xl font-bold">
-                                {startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} -
-                                {days[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            <h2 class="text-xl font-bold">
+                                ${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} -
+                                ${days[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </h2>
-                            <button
-                                onClick={() => {
-                                    const newDate = new Date(currentDate);
-                                    newDate.setDate(currentDate.getDate() + 7);
-                                    setCurrentDate(newDate);
-                                }}
-                                className="bg-blue-500 text-white px-4 py-2 rounded"
-                            >
+                            <button data-action="next-week" class="bg-blue-500 text-white px-4 py-2 rounded">
                                 Next →
                             </button>
                         </div>
 
-                        <div className="calendar-grid">
-                            {days.map((date, idx) => {
-                                const dateKey = formatDate(date);
-                                const entry = entries[dateKey];
-                                const isToday = formatDate(date) === formatDate(new Date());
+                        <div class="calendar-grid">
+                            ${days.map((date, idx) => {
+                                const dateKey = tracker.formatDate(date);
+                                const entry = state.entries[dateKey];
+                                const isToday = dateKey === todayKey;
 
-                                return (
-                                    <div key={idx} className="flex flex-col">
-                                        <div className="calendar-day-header">
-                                            {dayNames[idx]}
-                                        </div>
+                                return `
+                                    <div class="flex flex-col">
+                                        <div class="calendar-day-header">${dayNames[idx]}</div>
                                         <button
-                                            onClick={() => editDate(date)}
-                                            className={`calendar-day bg-gray-100 hover:bg-gray-200 cursor-pointer ${isToday ? 'ring-2 ring-blue-500' : ''}`}
+                                            data-edit-date="${dateKey}"
+                                            class="calendar-day bg-gray-100 hover:bg-gray-200 cursor-pointer ${isToday ? 'ring-2 ring-blue-500' : ''}"
                                         >
-                                            <div className="font-semibold">{date.getDate()}</div>
-                                            {entry ? (
-                                                <div className="flex flex-col gap-1 mt-1">
-                                                    <div className={`emoji-indicator ${getColor('alcohol', entry.alcohol)} rounded px-1`}>
-                                                        🍷
-                                                    </div>
-                                                    <div className={`emoji-indicator ${getColor('steps', entry.steps)} rounded px-1`}>
-                                                        👟
-                                                    </div>
-                                                    <div className={`emoji-indicator ${getColor('workout', entry.workout)} rounded px-1`}>
-                                                        💪
-                                                    </div>
+                                            <div class="font-semibold">${date.getDate()}</div>
+                                            ${entry ? `
+                                                <div class="flex flex-col gap-1 mt-1">
+                                                    <div class="emoji-indicator ${tracker.getColor('alcohol', entry.alcohol)} rounded px-1">🍷</div>
+                                                    <div class="emoji-indicator ${tracker.getColor('steps', entry.steps)} rounded px-1">👟</div>
+                                                    <div class="emoji-indicator ${tracker.getColor('workout', entry.workout)} rounded px-1">💪</div>
                                                 </div>
-                                            ) : (
-                                                <div className="text-gray-400 text-xs mt-1">No data</div>
-                                            )}
+                                            ` : '<div class="text-gray-400 text-xs mt-1">No data</div>'}
                                         </button>
                                     </div>
-                                );
-                            })}
+                                `;
+                            }).join('')}
                         </div>
                     </div>
-                );
+                `;
             }
 
-            function MonthlyView() {
-                const year = currentDate.getFullYear();
-                const month = currentDate.getMonth();
+            function renderMonthlyView(state) {
+                const year = state.currentDate.getFullYear();
+                const month = state.currentDate.getMonth();
                 const firstDay = new Date(year, month, 1);
                 const lastDay = new Date(year, month + 1, 0);
                 const startDay = firstDay.getDay();
                 const daysInMonth = lastDay.getDate();
 
                 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                const monthName = state.currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                const todayKey = tracker.formatDate(new Date());
 
                 const weeks = [];
                 let week = new Array(startDay).fill(null);
@@ -455,280 +459,289 @@
                     weeks.push(week);
                 }
 
-                return (
-                    <div className="p-4">
-                        <div className="flex justify-between items-center mb-4">
-                            <button
-                                onClick={() => {
-                                    const newDate = new Date(currentDate);
-                                    newDate.setMonth(currentDate.getMonth() - 1);
-                                    setCurrentDate(newDate);
-                                }}
-                                className="bg-blue-500 text-white px-4 py-2 rounded"
-                            >
+                return `
+                    <div class="p-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <button data-action="prev-month" class="bg-blue-500 text-white px-4 py-2 rounded">
                                 ← Prev
                             </button>
-                            <h2 className="text-xl font-bold">{monthName}</h2>
-                            <button
-                                onClick={() => {
-                                    const newDate = new Date(currentDate);
-                                    newDate.setMonth(currentDate.getMonth() + 1);
-                                    setCurrentDate(newDate);
-                                }}
-                                className="bg-blue-500 text-white px-4 py-2 rounded"
-                            >
+                            <h2 class="text-xl font-bold">${monthName}</h2>
+                            <button data-action="next-month" class="bg-blue-500 text-white px-4 py-2 rounded">
                                 Next →
                             </button>
                         </div>
 
-                        <div className="calendar-grid mb-2">
-                            {dayNames.map(name => (
-                                <div key={name} className="calendar-day-header">{name}</div>
-                            ))}
+                        <div class="calendar-grid mb-2">
+                            ${dayNames.map(name => `<div class="calendar-day-header">${name}</div>`).join('')}
                         </div>
 
-                        {weeks.map((week, weekIdx) => (
-                            <div key={weekIdx} className="calendar-grid mb-1">
-                                {week.map((day, dayIdx) => {
-                                    if (!day) return <div key={dayIdx} className="calendar-day"></div>;
+                        ${weeks.map(week => `
+                            <div class="calendar-grid mb-1">
+                                ${week.map(day => {
+                                    if (!day) return '<div class="calendar-day"></div>';
 
                                     const date = new Date(year, month, day);
-                                    const dateKey = formatDate(date);
-                                    const entry = entries[dateKey];
-                                    const isToday = formatDate(date) === formatDate(new Date());
+                                    const dateKey = tracker.formatDate(date);
+                                    const entry = state.entries[dateKey];
+                                    const isToday = dateKey === todayKey;
 
-                                    return (
+                                    return `
                                         <button
-                                            key={dayIdx}
-                                            onClick={() => editDate(date)}
-                                            className={`calendar-day bg-gray-100 hover:bg-gray-200 cursor-pointer ${isToday ? 'ring-2 ring-blue-500' : ''}`}
+                                            data-edit-date="${dateKey}"
+                                            class="calendar-day bg-gray-100 hover:bg-gray-200 cursor-pointer ${isToday ? 'ring-2 ring-blue-500' : ''}"
                                         >
-                                            <div className="font-semibold">{day}</div>
-                                            {entry ? (
-                                                <div className="flex gap-1 mt-1">
-                                                    <span className={`text-xs ${getColor('alcohol', entry.alcohol)} rounded px-1`}>🍷</span>
-                                                    <span className={`text-xs ${getColor('steps', entry.steps)} rounded px-1`}>👟</span>
-                                                    <span className={`text-xs ${getColor('workout', entry.workout)} rounded px-1`}>💪</span>
+                                            <div class="font-semibold">${day}</div>
+                                            ${entry ? `
+                                                <div class="flex gap-1 mt-1">
+                                                    <span class="text-xs ${tracker.getColor('alcohol', entry.alcohol)} rounded px-1">🍷</span>
+                                                    <span class="text-xs ${tracker.getColor('steps', entry.steps)} rounded px-1">👟</span>
+                                                    <span class="text-xs ${tracker.getColor('workout', entry.workout)} rounded px-1">💪</span>
                                                 </div>
-                                            ) : (
-                                                <div className="text-gray-400 text-xs mt-1">-</div>
-                                            )}
+                                            ` : '<div class="text-gray-400 text-xs mt-1">-</div>'}
                                         </button>
-                                    );
-                                })}
+                                    `;
+                                }).join('')}
                             </div>
-                        ))}
+                        `).join('')}
                     </div>
-                );
+                `;
             }
 
-            function SummaryView() {
-                const allDates = Object.keys(entries).sort().reverse();
+            function renderSummaryView(state) {
+                const allDates = Object.keys(state.entries).sort().reverse();
                 const last30Days = allDates.slice(0, 30);
 
                 let alcoholGreen = 0, alcoholYellow = 0, alcoholRed = 0;
                 let stepsGreen = 0, stepsRed = 0;
                 let workoutYes = 0, workoutNo = 0;
-                let currentStreak = 0;
-                let longestStreak = 0;
 
-                // Calculate stats
                 last30Days.forEach(date => {
-                    const entry = entries[date];
-
-                    // Alcohol
+                    const entry = state.entries[date];
                     const drinks = parseInt(entry.alcohol);
                     if (drinks >= 0 && drinks <= 2) alcoholGreen++;
                     else if (drinks >= 3 && drinks <= 4) alcoholYellow++;
                     else if (drinks >= 5) alcoholRed++;
 
-                    // Steps
                     const steps = parseInt(entry.steps);
                     if (steps >= 12500) stepsGreen++;
                     else stepsRed++;
 
-                    // Workout
                     if (entry.workout) workoutYes++;
                     else workoutNo++;
                 });
 
-                // Calculate workout streak
-                const sortedDates = Object.keys(entries).sort().reverse();
+                let longestStreak = 0;
                 let streakCount = 0;
+                const sortedDates = Object.keys(state.entries).sort().reverse();
 
                 for (let date of sortedDates) {
-                    if (entries[date].workout) {
+                    if (state.entries[date].workout) {
                         streakCount++;
                     } else {
-                        if (streakCount > longestStreak) {
-                            longestStreak = streakCount;
-                        }
+                        if (streakCount > longestStreak) longestStreak = streakCount;
                         streakCount = 0;
                     }
                 }
-                if (streakCount > longestStreak) {
-                    longestStreak = streakCount;
-                }
+                if (streakCount > longestStreak) longestStreak = streakCount;
 
-                // Current streak from today backwards
-                const today = formatDate(new Date());
+                let currentStreak = 0;
                 let checkDate = new Date();
-                while (entries[formatDate(checkDate)] && entries[formatDate(checkDate)].workout) {
+                while (state.entries[tracker.formatDate(checkDate)]?.workout) {
                     currentStreak++;
                     checkDate.setDate(checkDate.getDate() - 1);
                 }
 
-                return (
-                    <div className="p-4 space-y-6">
-                        <h2 className="text-2xl font-bold text-center mb-6">Summary (Last 30 Days)</h2>
+                return `
+                    <div class="p-4 space-y-6">
+                        <h2 class="text-2xl font-bold text-center mb-6">Summary (Last 30 Days)</h2>
 
-                        {/* Alcohol Stats */}
-                        <div className="bg-white p-4 rounded-lg shadow">
-                            <div className="flex items-center mb-3">
-                                <span className="text-3xl mr-3">🍷</span>
-                                <h3 className="text-xl font-bold">Alcohol Intake</h3>
+                        <div class="bg-white p-4 rounded-lg shadow">
+                            <div class="flex items-center mb-3">
+                                <span class="text-3xl mr-3">🍷</span>
+                                <h3 class="text-xl font-bold">Alcohol Intake</h3>
                             </div>
-                            <div className="space-y-2">
-                                <div className="flex justify-between items-center">
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center">
                                     <span>Green (0-2 drinks)</span>
-                                    <span className="bg-green-400 px-3 py-1 rounded font-bold">{alcoholGreen} days</span>
+                                    <span class="bg-green-400 px-3 py-1 rounded font-bold">${alcoholGreen} days</span>
                                 </div>
-                                <div className="flex justify-between items-center">
+                                <div class="flex justify-between items-center">
                                     <span>Yellow (3-4 drinks)</span>
-                                    <span className="bg-yellow-400 px-3 py-1 rounded font-bold">{alcoholYellow} days</span>
+                                    <span class="bg-yellow-400 px-3 py-1 rounded font-bold">${alcoholYellow} days</span>
                                 </div>
-                                <div className="flex justify-between items-center">
+                                <div class="flex justify-between items-center">
                                     <span>Red (5+ drinks)</span>
-                                    <span className="bg-red-400 px-3 py-1 rounded font-bold">{alcoholRed} days</span>
+                                    <span class="bg-red-400 px-3 py-1 rounded font-bold">${alcoholRed} days</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Steps Stats */}
-                        <div className="bg-white p-4 rounded-lg shadow">
-                            <div className="flex items-center mb-3">
-                                <span className="text-3xl mr-3">👟</span>
-                                <h3 className="text-xl font-bold">Step Goals</h3>
+                        <div class="bg-white p-4 rounded-lg shadow">
+                            <div class="flex items-center mb-3">
+                                <span class="text-3xl mr-3">👟</span>
+                                <h3 class="text-xl font-bold">Step Goals</h3>
                             </div>
-                            <div className="space-y-2">
-                                <div className="flex justify-between items-center">
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center">
                                     <span>Goal Met (12,500+)</span>
-                                    <span className="bg-green-400 px-3 py-1 rounded font-bold">{stepsGreen} days</span>
+                                    <span class="bg-green-400 px-3 py-1 rounded font-bold">${stepsGreen} days</span>
                                 </div>
-                                <div className="flex justify-between items-center">
+                                <div class="flex justify-between items-center">
                                     <span>Below Goal</span>
-                                    <span className="bg-red-400 px-3 py-1 rounded font-bold">{stepsRed} days</span>
+                                    <span class="bg-red-400 px-3 py-1 rounded font-bold">${stepsRed} days</span>
                                 </div>
-                                <div className="mt-2 pt-2 border-t">
-                                    <span className="font-semibold">Success Rate: </span>
-                                    <span className="text-lg font-bold">
-                                        {stepsGreen + stepsRed > 0 ? Math.round((stepsGreen / (stepsGreen + stepsRed)) * 100) : 0}%
+                                <div class="mt-2 pt-2 border-t">
+                                    <span class="font-semibold">Success Rate: </span>
+                                    <span class="text-lg font-bold">
+                                        ${stepsGreen + stepsRed > 0 ? Math.round((stepsGreen / (stepsGreen + stepsRed)) * 100) : 0}%
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Workout Stats */}
-                        <div className="bg-white p-4 rounded-lg shadow">
-                            <div className="flex items-center mb-3">
-                                <span className="text-3xl mr-3">💪</span>
-                                <h3 className="text-xl font-bold">Workouts</h3>
+                        <div class="bg-white p-4 rounded-lg shadow">
+                            <div class="flex items-center mb-3">
+                                <span class="text-3xl mr-3">💪</span>
+                                <h3 class="text-xl font-bold">Workouts</h3>
                             </div>
-                            <div className="space-y-2">
-                                <div className="flex justify-between items-center">
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center">
                                     <span>Completed</span>
-                                    <span className="bg-green-400 px-3 py-1 rounded font-bold">{workoutYes} days</span>
+                                    <span class="bg-green-400 px-3 py-1 rounded font-bold">${workoutYes} days</span>
                                 </div>
-                                <div className="flex justify-between items-center">
+                                <div class="flex justify-between items-center">
                                     <span>Missed</span>
-                                    <span className="bg-red-400 px-3 py-1 rounded font-bold">{workoutNo} days</span>
+                                    <span class="bg-red-400 px-3 py-1 rounded font-bold">${workoutNo} days</span>
                                 </div>
-                                <div className="mt-2 pt-2 border-t space-y-1">
+                                <div class="mt-2 pt-2 border-t space-y-1">
                                     <div>
-                                        <span className="font-semibold">Current Streak: </span>
-                                        <span className="text-lg font-bold text-green-600">{currentStreak} days 🔥</span>
+                                        <span class="font-semibold">Current Streak: </span>
+                                        <span class="text-lg font-bold text-green-600">${currentStreak} days 🔥</span>
                                     </div>
                                     <div>
-                                        <span className="font-semibold">Longest Streak: </span>
-                                        <span className="text-lg font-bold text-blue-600">{longestStreak} days 🏆</span>
+                                        <span class="font-semibold">Longest Streak: </span>
+                                        <span class="text-lg font-bold text-blue-600">${longestStreak} days 🏆</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="text-center text-sm text-gray-600 mt-6">
-                            Total entries logged: {allDates.length} days
+                        <div class="text-center text-sm text-gray-600 mt-6">
+                            Total entries logged: ${allDates.length} days
                         </div>
                     </div>
-                );
+                `;
             }
 
-            return (
-                <div className="max-w-4xl mx-auto min-h-screen bg-gray-50">
-                    {/* Header */}
-                    <div className="bg-blue-600 text-white p-4 shadow-lg">
-                        <h1 className="text-2xl font-bold text-center">Health Tracker</h1>
-                    </div>
+            function attachEventListeners() {
+                // View navigation
+                document.querySelectorAll('[data-view]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        tracker.changeView(e.target.dataset.view);
+                    });
+                });
 
-                    {/* Navigation */}
-                    <div className="bg-white shadow-md sticky top-0 z-10">
-                        <div className="flex">
-                            <button
-                                onClick={() => setView('daily')}
-                                className={`flex-1 py-3 font-semibold ${
-                                    view === 'daily'
-                                        ? 'bg-blue-500 text-white'
-                                        : 'bg-white text-gray-700 hover:bg-gray-100'
-                                }`}
-                            >
-                                Daily
-                            </button>
-                            <button
-                                onClick={() => setView('weekly')}
-                                className={`flex-1 py-3 font-semibold ${
-                                    view === 'weekly'
-                                        ? 'bg-blue-500 text-white'
-                                        : 'bg-white text-gray-700 hover:bg-gray-100'
-                                }`}
-                            >
-                                Weekly
-                            </button>
-                            <button
-                                onClick={() => setView('monthly')}
-                                className={`flex-1 py-3 font-semibold ${
-                                    view === 'monthly'
-                                        ? 'bg-blue-500 text-white'
-                                        : 'bg-white text-gray-700 hover:bg-gray-100'
-                                }`}
-                            >
-                                Monthly
-                            </button>
-                            <button
-                                onClick={() => setView('summary')}
-                                className={`flex-1 py-3 font-semibold ${
-                                    view === 'summary'
-                                        ? 'bg-blue-500 text-white'
-                                        : 'bg-white text-gray-700 hover:bg-gray-100'
-                                }`}
-                            >
-                                Summary
-                            </button>
-                        </div>
-                    </div>
+                // Input fields - update state on every keystroke but don't re-render
+                document.querySelectorAll('[data-field]').forEach(input => {
+                    // Update state as user types (keeps data in sync)
+                    input.addEventListener('input', (e) => {
+                        tracker.state.editEntry[e.target.dataset.field] = e.target.value;
+                    });
 
-                    {/* Content */}
-                    <div className="pb-6">
-                        {view === 'daily' && <DailyView />}
-                        {view === 'weekly' && <WeeklyView />}
-                        {view === 'monthly' && <MonthlyView />}
-                        {view === 'summary' && <SummaryView />}
-                        {view === 'edit' && <EditView />}
-                    </div>
-                </div>
-            );
+                    // Update background colors when user finishes (on blur or change)
+                    input.addEventListener('blur', (e) => {
+                        tracker.updateEntry(e.target.dataset.field, e.target.value);
+                        tracker.updateColorBackgrounds();
+                    });
+
+                    input.addEventListener('change', (e) => {
+                        tracker.updateColorBackgrounds();
+                    });
+                });
+
+                // Workout buttons
+                document.querySelectorAll('[data-workout]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        tracker.updateEntry('workout', e.target.dataset.workout === 'true');
+                        tracker.updateColorBackgrounds();
+                    });
+                });
+
+                // Save button
+                const saveBtn = document.querySelector('[data-action="save"]');
+                if (saveBtn) {
+                    saveBtn.addEventListener('click', () => {
+                        const date = tracker.state.view === 'edit' ? tracker.state.selectedDate : new Date();
+                        tracker.saveEntry(date);
+                    });
+                }
+
+                // Back button
+                const backBtn = document.querySelector('[data-action="back"]');
+                if (backBtn) {
+                    backBtn.addEventListener('click', () => {
+                        tracker.setState({ view: 'daily', selectedDate: null });
+                    });
+                }
+
+                // Edit date buttons
+                document.querySelectorAll('[data-edit-date]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const dateStr = e.currentTarget.dataset.editDate;
+                        const date = new Date(dateStr + 'T12:00:00');
+                        tracker.editDate(date);
+                    });
+                });
+
+                // Week navigation
+                const prevWeek = document.querySelector('[data-action="prev-week"]');
+                if (prevWeek) {
+                    prevWeek.addEventListener('click', () => {
+                        const newDate = new Date(tracker.state.currentDate);
+                        newDate.setDate(newDate.getDate() - 7);
+                        tracker.setState({ currentDate: newDate });
+                    });
+                }
+
+                const nextWeek = document.querySelector('[data-action="next-week"]');
+                if (nextWeek) {
+                    nextWeek.addEventListener('click', () => {
+                        const newDate = new Date(tracker.state.currentDate);
+                        newDate.setDate(newDate.getDate() + 7);
+                        tracker.setState({ currentDate: newDate });
+                    });
+                }
+
+                // Month navigation
+                const prevMonth = document.querySelector('[data-action="prev-month"]');
+                if (prevMonth) {
+                    prevMonth.addEventListener('click', () => {
+                        const newDate = new Date(tracker.state.currentDate);
+                        newDate.setMonth(newDate.getMonth() - 1);
+                        tracker.setState({ currentDate: newDate });
+                    });
+                }
+
+                const nextMonth = document.querySelector('[data-action="next-month"]');
+                if (nextMonth) {
+                    nextMonth.addEventListener('click', () => {
+                        const newDate = new Date(tracker.state.currentDate);
+                        newDate.setMonth(newDate.getMonth() + 1);
+                        tracker.setState({ currentDate: newDate });
+                    });
+                }
+            }
+
+            tracker.subscribe(render);
+            render();
         }
 
-        ReactDOM.render(<HealthTrackerApp />, document.getElementById('root'));
+        // Initialize app
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', App);
+        } else {
+            App();
+        }
     </script>
 </body>
 </html>
