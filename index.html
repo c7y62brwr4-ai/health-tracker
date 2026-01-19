@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Health Tracker">
+    <meta name="apple-mobile-web-app-title" content="Buber Health">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23a8e6cf'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>💪</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23a8e6cf'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>💪</text></svg>">
     <title>Buber Health</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -125,6 +127,64 @@
         .fade-in {
             animation: fadeIn 0.3s ease;
         }
+
+        /* Confetti animation */
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: #f0f;
+            position: fixed;
+            top: -10px;
+            z-index: 9999;
+            animation: confetti-fall 3s linear;
+        }
+
+        @keyframes confetti-fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* Badge styles */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+            animation: badgePop 0.5s ease;
+        }
+
+        @keyframes badgePop {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* Tooltip for week view */
+        .day-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            pointer-events: none;
+            z-index: 1000;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .day-tooltip.show {
+            opacity: 1;
+        }
         .calendar-day-header {
             font-weight: 600;
             padding: 8px 4px;
@@ -238,7 +298,10 @@
                         if (isNaN(steps)) return 'bg-gray-200';
                         return steps >= 12500 ? 'bg-[#b8f4d4]' : 'bg-[#ffb8b8]'; // Mint or Coral
                     case 'workout':
-                        return value ? 'bg-[#b8f4d4]' : 'bg-[#ffb8b8]'; // Mint or Coral
+                        // Check if value is explicitly false (not just falsy)
+                        if (value === false) return 'bg-[#ffb8b8]'; // Coral for No
+                        if (value === true) return 'bg-[#b8f4d4]'; // Mint for Yes
+                        return 'bg-gray-200'; // Gray for not selected yet
                     default:
                         return 'bg-gray-200';
                 }
@@ -246,17 +309,90 @@
 
             saveEntry(date) {
                 const dateKey = this.formatDate(date);
-                this.state.entries[dateKey] = {
+                const entry = {
                     alcohol: this.state.editEntry.alcohol,
                     steps: this.state.editEntry.steps,
                     workout: this.state.editEntry.workout
                 };
+
+                this.state.entries[dateKey] = entry;
                 this.saveData();
+
+                // Check for perfect day and celebrate!
+                const isPerfectDay = this.isPerfectDay(entry);
+                if (isPerfectDay) {
+                    this.celebrate();
+                }
+
+                // Check for milestones
+                const milestone = this.checkMilestones();
+
                 this.setState({
                     entries: this.state.entries,
                     view: 'daily',
-                    selectedDate: null
+                    selectedDate: null,
+                    milestone: milestone
                 });
+            }
+
+            isPerfectDay(entry) {
+                const drinks = parseInt(entry.alcohol);
+                const steps = parseInt(entry.steps);
+                return (drinks >= 0 && drinks <= 2) && steps >= 12500 && entry.workout;
+            }
+
+            celebrate() {
+                // Create confetti
+                const colors = ['#b8f4d4', '#ffd4b8', '#ffb8b8', '#d4e4ff', '#fff4b8'];
+                for (let i = 0; i < 50; i++) {
+                    setTimeout(() => {
+                        const confetti = document.createElement('div');
+                        confetti.className = 'confetti';
+                        confetti.style.left = Math.random() * 100 + '%';
+                        confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                        confetti.style.animationDelay = Math.random() * 0.5 + 's';
+                        document.body.appendChild(confetti);
+                        setTimeout(() => confetti.remove(), 3000);
+                    }, i * 30);
+                }
+            }
+
+            checkMilestones() {
+                const dates = Object.keys(this.state.entries).sort();
+
+                // Count perfect days
+                let perfectDays = 0;
+                dates.forEach(date => {
+                    if (this.isPerfectDay(this.state.entries[date])) {
+                        perfectDays++;
+                    }
+                });
+
+                // Count workout streak
+                let streak = 0;
+                let checkDate = new Date();
+                while (this.state.entries[this.formatDate(checkDate)]?.workout) {
+                    streak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                }
+
+                // Return milestone if achieved
+                if (perfectDays === 1) return { icon: '🌟', text: 'First Perfect Day!' };
+                if (perfectDays === 7) return { icon: '✨', text: '7 Perfect Days!' };
+                if (perfectDays === 30) return { icon: '🏆', text: '30 Perfect Days!' };
+                if (streak === 3) return { icon: '🔥', text: '3-Day Workout Streak!' };
+                if (streak === 7) return { icon: '💪', text: 'Week-Long Streak!' };
+                if (streak === 30) return { icon: '👑', text: 'Monthly Streak Champion!' };
+
+                return null;
+            }
+
+            deleteEntry(dateKey) {
+                if (confirm('Are you sure you want to delete this entry?')) {
+                    delete this.state.entries[dateKey];
+                    this.saveData();
+                    this.setState({ entries: this.state.entries });
+                }
             }
 
             editDate(date) {
@@ -354,7 +490,6 @@
                     <div class="max-w-4xl mx-auto min-h-screen">
                         <div class="bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white p-6 shadow-lg" style="border-radius: 0 0 30px 30px;">
                             <h1 class="text-3xl font-bold text-center tracking-tight" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Buber Health</h1>
-                            <p class="text-center text-sm mt-1 opacity-90">Your wellness journey ✨</p>
                         </div>
 
                         <div class="bg-white shadow-lg sticky top-0 z-10" style="border-radius: 0 0 20px 20px;">
@@ -409,16 +544,38 @@
                     year: 'numeric'
                 });
 
+                // Get encouraging message
+                const todayKey = tracker.formatDate(new Date());
+                const todayEntry = state.entries[todayKey];
+                let encouragement = '';
+
+                if (todayEntry) {
+                    const isPerfect = tracker.isPerfectDay(todayEntry);
+                    if (isPerfect) {
+                        encouragement = '<div class="card bg-gradient-to-r from-[#b8f4d4] to-[#a8e6cf] mb-4"><p class="text-center font-semibold text-gray-800">🎉 Perfect day! You\'re crushing it!</p></div>';
+                    }
+                }
+
+                // Show milestone badge if exists
+                const milestoneHtml = state.milestone ? `
+                    <div class="badge mx-auto mb-4">
+                        <span class="text-2xl">${state.milestone.icon}</span>
+                        <span>${state.milestone.text}</span>
+                    </div>
+                ` : '';
+
                 return `
                     <div class="p-4 space-y-6 fade-in">
+                        ${milestoneHtml}
                         ${isEdit ? `
                             <div class="flex items-center justify-between mb-6">
                                 <button data-action="back" class="text-[#7fd4b8] font-semibold text-lg hover:text-[#6fc4a8] transition-colors">← Back</button>
                                 <h2 class="text-xl font-bold text-gray-800">${dateStr}</h2>
-                                <div class="w-16"></div>
+                                <button data-action="delete-entry" data-date="${dateKey}" class="text-red-500 font-semibold text-lg hover:text-red-600 transition-colors">🗑️</button>
                             </div>
                         ` : `
                             <h2 class="text-3xl font-bold text-center mb-6 text-gray-800" style="text-shadow: 0 2px 4px rgba(0,0,0,0.05);">Today's Entry</h2>
+                            ${encouragement}
                         `}
 
                         <div data-bg="alcohol" class="card ${tracker.getColor('alcohol', entry.alcohol)}" style="transition: all 0.3s ease;">
@@ -524,31 +681,35 @@
                             </button>
                         </div>
 
-                        <div class="calendar-grid">
+                        <div class="calendar-grid" style="position: relative;">
                             ${days.map((date, idx) => {
                                 const dateKey = tracker.formatDate(date);
                                 const entry = state.entries[dateKey];
                                 const isToday = dateKey === todayKey;
+                                const tooltipData = entry ? `🍷 ${entry.alcohol} | 👟 ${parseInt(entry.steps).toLocaleString()} | 💪 ${entry.workout ? 'Yes' : 'No'}` : 'No data';
 
                                 return `
                                     <div class="flex flex-col">
                                         <div class="calendar-day-header">${dayNames[idx]}</div>
                                         <button
                                             data-edit-date="${dateKey}"
+                                            data-tooltip="${tooltipData}"
                                             class="calendar-day bg-gray-100 hover:bg-gray-200 cursor-pointer ${isToday ? 'ring-2 ring-blue-500' : ''}"
+                                            style="position: relative;"
                                         >
-                                            <div class="font-semibold">${date.getDate()}</div>
+                                            <div class="font-semibold mb-1">${date.getDate()}</div>
                                             ${entry ? `
-                                                <div class="flex flex-col gap-1 mt-1">
-                                                    <div class="emoji-indicator ${tracker.getColor('alcohol', entry.alcohol)} rounded px-1">🍷</div>
-                                                    <div class="emoji-indicator ${tracker.getColor('steps', entry.steps)} rounded px-1">👟</div>
-                                                    <div class="emoji-indicator ${tracker.getColor('workout', entry.workout)} rounded px-1">💪</div>
+                                                <div class="flex flex-wrap gap-1 justify-center" style="max-width: 100%;">
+                                                    <div class="emoji-indicator ${tracker.getColor('alcohol', entry.alcohol)} rounded px-1" style="flex-shrink: 0;">🍷</div>
+                                                    <div class="emoji-indicator ${tracker.getColor('steps', entry.steps)} rounded px-1" style="flex-shrink: 0;">👟</div>
+                                                    <div class="emoji-indicator ${tracker.getColor('workout', entry.workout)} rounded px-1" style="flex-shrink: 0;">💪</div>
                                                 </div>
-                                            ` : '<div class="text-gray-400 text-xs mt-1">No data</div>'}
+                                            ` : '<div class="text-gray-400 text-xs mt-1">Tap to add</div>'}
                                         </button>
                                     </div>
                                 `;
                             }).join('')}
+                            <div id="tooltip" class="day-tooltip"></div>
                         </div>
                     </div>
                 `;
@@ -748,6 +909,35 @@
                     checkDate.setDate(checkDate.getDate() - 1);
                 }
 
+                // Calculate averages
+                const avgAlcohol = totalDays > 0 ? (yearDates.reduce((sum, date) => sum + parseInt(state.entries[date].alcohol || 0), 0) / totalDays).toFixed(1) : 0;
+                const avgSteps = totalDays > 0 ? Math.round(yearDates.reduce((sum, date) => sum + parseInt(state.entries[date].steps || 0), 0) / totalDays) : 0;
+                const avgWorkouts = totalWeeks > 0 ? (workoutYes / totalWeeks).toFixed(1) : 0;
+
+                // Get current week and last week data
+                const today = new Date();
+                const currentWeekStart = new Date(today);
+                currentWeekStart.setDate(today.getDate() - today.getDay());
+                const lastWeekStart = new Date(currentWeekStart);
+                lastWeekStart.setDate(currentWeekStart.getDate() - 7);
+
+                const currentWeekKey = tracker.formatDate(currentWeekStart);
+                const lastWeekKey = tracker.formatDate(lastWeekStart);
+
+                const currentWeekWorkouts = weeklyWorkouts[currentWeekKey] || 0;
+                const lastWeekWorkouts = weeklyWorkouts[lastWeekKey] || 0;
+
+                let weekComparison = '';
+                if (lastWeekWorkouts > 0) {
+                    if (currentWeekWorkouts > lastWeekWorkouts) {
+                        weekComparison = `<span class="text-green-600">📈 +${currentWeekWorkouts - lastWeekWorkouts} vs last week!</span>`;
+                    } else if (currentWeekWorkouts < lastWeekWorkouts) {
+                        weekComparison = `<span class="text-orange-600">📉 ${currentWeekWorkouts - lastWeekWorkouts} vs last week</span>`;
+                    } else {
+                        weekComparison = `<span class="text-blue-600">➡️ Same as last week</span>`;
+                    }
+                }
+
                 return `
                     <div class="p-4 space-y-6">
                         <h2 class="text-2xl font-bold text-center mb-6">${currentYear} Summary</h2>
@@ -760,6 +950,25 @@
                                 <p class="text-sm mt-2 opacity-90">${allThreeGoals} out of ${totalWeeks} weeks</p>
                                 <p class="text-xs mt-3 opacity-80">Alcohol 0-2 every day • Steps 12,500+ every day • Workouts 3+ times</p>
                             </div>
+                        </div>
+
+                        <div class="card bg-gradient-to-r from-[#d4e4ff] to-[#e8d4ff]">
+                            <h3 class="text-lg font-bold mb-3">📊 Your Averages</h3>
+                            <div class="grid grid-cols-3 gap-4 text-center">
+                                <div>
+                                    <div class="text-2xl font-bold text-gray-800">${avgAlcohol}</div>
+                                    <div class="text-xs text-gray-600">drinks/day</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold text-gray-800">${avgSteps.toLocaleString()}</div>
+                                    <div class="text-xs text-gray-600">steps/day</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold text-gray-800">${avgWorkouts}</div>
+                                    <div class="text-xs text-gray-600">workouts/week</div>
+                                </div>
+                            </div>
+                            ${weekComparison ? `<div class="mt-3 pt-3 border-t border-gray-300 text-center font-semibold">${weekComparison}</div>` : ''}
                         </div>
 
                         <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
@@ -934,6 +1143,15 @@
                     });
                 }
 
+                // Delete entry button
+                const deleteBtn = document.querySelector('[data-action="delete-entry"]');
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', (e) => {
+                        const dateKey = e.target.dataset.date;
+                        tracker.deleteEntry(dateKey);
+                    });
+                }
+
                 // Edit date buttons
                 document.querySelectorAll('[data-edit-date]').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -942,6 +1160,33 @@
                         tracker.editDate(date);
                     });
                 });
+
+                // Tooltip for week view
+                const tooltip = document.getElementById('tooltip');
+                if (tooltip) {
+                    document.querySelectorAll('[data-tooltip]').forEach(elem => {
+                        elem.addEventListener('mouseenter', (e) => {
+                            tooltip.textContent = e.target.dataset.tooltip;
+                            tooltip.classList.add('show');
+                            const rect = e.target.getBoundingClientRect();
+                            tooltip.style.left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2 + 'px';
+                            tooltip.style.top = rect.bottom + 8 + 'px';
+                        });
+                        elem.addEventListener('mouseleave', () => {
+                            tooltip.classList.remove('show');
+                        });
+                        // Touch support for mobile
+                        elem.addEventListener('touchstart', (e) => {
+                            e.preventDefault();
+                            tooltip.textContent = e.currentTarget.dataset.tooltip;
+                            tooltip.classList.add('show');
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            tooltip.style.left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2 + 'px';
+                            tooltip.style.top = rect.bottom + 8 + 'px';
+                            setTimeout(() => tooltip.classList.remove('show'), 2000);
+                        }, { passive: false });
+                    });
+                }
 
                 // Week navigation
                 const prevWeek = document.querySelector('[data-action="prev-week"]');
