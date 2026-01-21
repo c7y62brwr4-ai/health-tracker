@@ -663,15 +663,17 @@
                             </div>
                         ` : `
                             <div class="card mb-4">
-                                <label class="block text-sm font-semibold text-gray-600 mb-2">Select Date</label>
-                                <input
-                                    type="date"
-                                    id="datePicker"
-                                    value="${tracker.formatDate(date)}"
-                                    max="${tracker.formatDate(new Date())}"
-                                    class="w-full p-3 text-lg font-semibold text-gray-800 border-2 border-gray-200 rounded-xl focus:border-[#a8e6cf] focus:outline-none transition-colors"
-                                />
-                                <p class="text-xs text-gray-500 mt-2">Choose any date to add or edit data</p>
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="text-sm font-semibold text-gray-600">Select Date</label>
+                                    <input
+                                        type="date"
+                                        id="datePicker"
+                                        value="${tracker.formatDate(date)}"
+                                        max="${tracker.formatDate(new Date())}"
+                                        class="px-4 py-2 text-base font-semibold text-gray-800 border-2 border-gray-200 rounded-xl focus:border-[#a8e6cf] focus:outline-none transition-colors"
+                                    />
+                                </div>
+                                <p class="text-xs text-gray-500 text-center">Choose any date to add or edit data</p>
                             </div>
                             ${encouragement}
                         `}
@@ -798,10 +800,10 @@
                                         >
                                             <div class="font-semibold mb-1">${date.getDate()}</div>
                                             ${entry ? `
-                                                <div class="flex flex-wrap gap-1 justify-center" style="max-width: 100%;">
-                                                    <div class="emoji-indicator ${tracker.getColor('alcohol', entry.alcohol)} rounded px-1" style="flex-shrink: 0;">🍷</div>
-                                                    <div class="emoji-indicator ${tracker.getColor('steps', entry.steps)} rounded px-1" style="flex-shrink: 0;">👟</div>
-                                                    <div class="emoji-indicator ${tracker.getColor('workout', entry.workout)} rounded px-1" style="flex-shrink: 0;">💪</div>
+                                                <div class="flex gap-1 justify-center mt-1">
+                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('alcohol', entry.alcohol)}" title="Grey Juice"></div>
+                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('steps', entry.steps)}" title="Steps"></div>
+                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('workout', entry.workout)}" title="Workout"></div>
                                                 </div>
                                             ` : '<div class="text-gray-400 text-xs mt-1">No data</div>'}
                                         </div>
@@ -939,9 +941,9 @@
                                             <div class="font-semibold">${day}</div>
                                             ${entry ? `
                                                 <div class="flex gap-1 mt-1 justify-center">
-                                                    <span class="text-xs ${tracker.getColor('alcohol', entry.alcohol)} rounded px-1">🍷</span>
-                                                    <span class="text-xs ${tracker.getColor('steps', entry.steps)} rounded px-1">👟</span>
-                                                    <span class="text-xs ${tracker.getColor('workout', entry.workout)} rounded px-1">💪</span>
+                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('alcohol', entry.alcohol)}" title="Grey Juice"></div>
+                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('steps', entry.steps)}" title="Steps"></div>
+                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('workout', entry.workout)}" title="Workout"></div>
                                                 </div>
                                             ` : '<div class="text-gray-400 text-xs mt-1">-</div>'}
                                         </div>
