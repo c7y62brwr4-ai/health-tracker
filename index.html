@@ -40,12 +40,12 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            border-radius: 16px;
-            padding: 8px;
+            border-radius: 12px;
+            padding: 4px;
             font-size: 12px;
             border: none;
             transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
         }
         .calendar-day:hover {
             transform: translateY(-2px);
@@ -53,6 +53,9 @@
         }
         .calendar-day:active {
             transform: scale(0.95);
+        }
+        .calendar-empty {
+            aspect-ratio: 1;
         }
 
         /* Card styles */
@@ -125,7 +128,59 @@
             }
         }
         .fade-in {
-            animation: fadeIn 0.3s ease;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-up {
+            animation: slideUp 0.4s ease-out;
+        }
+
+        /* Loading spinner */
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(168, 230, 207, 0.3);
+            border-top-color: #a8e6cf;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(232, 249, 240, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
         }
 
         /* Confetti animation */
@@ -169,21 +224,45 @@
 
         /* Tooltip for week view */
         .day-tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.9);
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
             color: white;
-            padding: 0.75rem;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            pointer-events: none;
+            padding: 1rem 1.5rem;
+            border-radius: 16px;
+            font-size: 0.9rem;
+            pointer-events: auto;
             z-index: 1000;
             white-space: nowrap;
             opacity: 0;
-            transition: opacity 0.2s;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
         }
 
         .day-tooltip.show {
             opacity: 1;
+        }
+
+        .tooltip-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .tooltip-backdrop.show {
+            opacity: 1;
+            pointer-events: auto;
         }
         .calendar-day-header {
             font-weight: 600;
@@ -289,7 +368,30 @@
             setState(updates, skipRender = false) {
                 this.state = { ...this.state, ...updates };
                 if (!skipRender) {
-                    this.listeners.forEach(fn => fn(this.state));
+                    // Show loading for calculation-heavy views
+                    if (updates.view === 'summary' || updates.view === 'monthly') {
+                        this.showLoading();
+                        setTimeout(() => {
+                            this.listeners.forEach(fn => fn(this.state));
+                            this.hideLoading();
+                        }, 50);
+                    } else {
+                        this.listeners.forEach(fn => fn(this.state));
+                    }
+                }
+            }
+
+            showLoading() {
+                const overlay = document.getElementById('loading-overlay');
+                if (overlay) {
+                    overlay.classList.add('show');
+                }
+            }
+
+            hideLoading() {
+                const overlay = document.getElementById('loading-overlay');
+                if (overlay) {
+                    overlay.classList.remove('show');
                 }
             }
 
@@ -369,18 +471,35 @@
             }
 
             celebrate() {
-                // Create confetti
-                const colors = ['#b8f4d4', '#ffd4b8', '#ffb8b8', '#d4e4ff', '#fff4b8'];
-                for (let i = 0; i < 50; i++) {
+                // Create enhanced confetti with colors and emojis
+                const colors = ['#b8f4d4', '#ffd4b8', '#ffb8b8', '#d4e4ff', '#fff4b8', '#ffccff', '#ccf2ff'];
+                const emojis = ['🎉', '⭐', '✨', '🎊', '💪', '🔥', '👏', '🏆'];
+                const confettiCount = 100;
+
+                for (let i = 0; i < confettiCount; i++) {
                     setTimeout(() => {
                         const confetti = document.createElement('div');
                         confetti.className = 'confetti';
+
+                        // Randomly choose between colored confetti or emoji
+                        const useEmoji = Math.random() > 0.7;
+
+                        if (useEmoji) {
+                            confetti.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                            confetti.style.fontSize = (Math.random() * 20 + 20) + 'px';
+                        } else {
+                            confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                            confetti.style.width = (Math.random() * 15 + 10) + 'px';
+                            confetti.style.height = (Math.random() * 15 + 10) + 'px';
+                        }
+
                         confetti.style.left = Math.random() * 100 + '%';
-                        confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-                        confetti.style.animationDelay = Math.random() * 0.5 + 's';
+                        confetti.style.animationDelay = Math.random() * 0.3 + 's';
+                        confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+
                         document.body.appendChild(confetti);
-                        setTimeout(() => confetti.remove(), 3000);
-                    }, i * 30);
+                        setTimeout(() => confetti.remove(), 4000);
+                    }, i * 15);
                 }
             }
 
@@ -769,7 +888,7 @@
                 const todayKey = tracker.formatDate(new Date());
 
                 return `
-                    <div class="p-4">
+                    <div class="p-4 slide-up">
                         <div class="flex justify-between items-center mb-4">
                             <button data-action="prev-week" class="bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white px-6 py-2 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all">
                                 ← Prev
@@ -784,32 +903,50 @@
                         </div>
 
                         <div class="calendar-grid" style="position: relative;">
-                            ${days.map((date, idx) => {
-                                const dateKey = tracker.formatDate(date);
-                                const entry = state.entries[dateKey];
-                                const isToday = dateKey === todayKey;
-                                const tooltipData = entry ? `🍷 ${entry.alcohol} | 👟 ${parseInt(entry.steps).toLocaleString()} | 💪 ${entry.workout ? 'Yes' : 'No'}` : 'No data';
+                            ${(() => {
+                                // Calculate total workouts for the week
+                                const weekWorkouts = days.filter(d => state.entries[tracker.formatDate(d)]?.workout === true).length;
+                                const workoutGoal = state.settings.workoutsPerWeek;
 
-                                return `
-                                    <div class="flex flex-col">
-                                        <div class="calendar-day-header">${dayNames[idx]}</div>
-                                        <div
-                                            data-tooltip="${tooltipData}"
-                                            class="calendar-day bg-gray-100 ${isToday ? 'ring-2 ring-[#7fd4b8]' : ''}"
-                                            style="position: relative;"
-                                        >
-                                            <div class="font-semibold mb-1">${date.getDate()}</div>
-                                            ${entry ? `
-                                                <div class="flex gap-1 justify-center mt-1">
-                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('alcohol', entry.alcohol)}" title="Grey Juice"></div>
-                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('steps', entry.steps)}" title="Steps"></div>
-                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('workout', entry.workout)}" title="Workout"></div>
-                                                </div>
-                                            ` : '<div class="text-gray-400 text-xs mt-1">No data</div>'}
+                                return days.map((date, idx) => {
+                                    const dateKey = tracker.formatDate(date);
+                                    const entry = state.entries[dateKey];
+                                    const isToday = dateKey === todayKey;
+                                    const tooltipData = entry ? `🍷 ${entry.alcohol} | 👟 ${parseInt(entry.steps).toLocaleString()} | 💪 ${entry.workout ? 'Yes' : 'No'}` : 'No data';
+
+                                    // Determine workout dot color based on week progress
+                                    let workoutColor = 'bg-gray-300';
+                                    if (entry) {
+                                        if (entry.workout === true) {
+                                            // Green if goal met, yellow if in progress
+                                            workoutColor = weekWorkouts >= workoutGoal ? 'bg-[#b8f4d4]' : 'bg-[#fff4b8]';
+                                        } else if (entry.workout === false) {
+                                            workoutColor = 'bg-[#ffb8b8]';
+                                        }
+                                    }
+
+                                    return `
+                                        <div class="flex flex-col">
+                                            <div class="calendar-day-header">${dayNames[idx]}</div>
+                                            <div
+                                                data-tooltip="${tooltipData}"
+                                                class="calendar-day bg-gray-100 ${isToday ? 'ring-2 ring-[#7fd4b8]' : ''}"
+                                                style="position: relative;"
+                                            >
+                                                <div class="font-semibold mb-1">${date.getDate()}</div>
+                                                ${entry ? `
+                                                    <div class="flex gap-1 justify-center mt-1">
+                                                        <div class="w-2 h-2 rounded-full ${tracker.getColor('alcohol', entry.alcohol)}" title="Grey Juice"></div>
+                                                        <div class="w-2 h-2 rounded-full ${tracker.getColor('steps', entry.steps)}" title="Steps"></div>
+                                                        <div class="w-2 h-2 rounded-full ${workoutColor}" title="Workout"></div>
+                                                    </div>
+                                                ` : '<div class="text-gray-400 text-xs mt-1">No data</div>'}
+                                            </div>
                                         </div>
-                                    </div>
-                                `;
-                            }).join('')}
+                                    `;
+                                }).join('');
+                            })()}
+                            <div class="tooltip-backdrop" id="tooltipBackdrop"></div>
                             <div id="tooltip" class="day-tooltip"></div>
                         </div>
 
@@ -909,7 +1046,7 @@
                 }
 
                 return `
-                    <div class="p-4">
+                    <div class="p-4 slide-up">
                         <div class="flex justify-between items-center mb-4">
                             <button data-action="prev-month" class="bg-gradient-to-r from-[#a8e6cf] to-[#7fd4b8] text-white px-6 py-2 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all">
                                 ← Prev
@@ -924,35 +1061,54 @@
                             ${dayNames.map(name => `<div class="calendar-day-header">${name}</div>`).join('')}
                         </div>
 
-                        ${weeks.map(week => `
-                            <div class="calendar-grid mb-1">
-                                ${week.map(day => {
-                                    if (!day) return '<div></div>';
+                        ${weeks.map(week => {
+                            // Calculate workouts for this calendar week
+                            const weekDates = week.filter(d => d).map(d => new Date(year, month, d));
+                            const weekWorkouts = weekDates.filter(d => state.entries[tracker.formatDate(d)]?.workout === true).length;
+                            const workoutGoal = state.settings.workoutsPerWeek;
 
-                                    const date = new Date(year, month, day);
-                                    const dateKey = tracker.formatDate(date);
-                                    const entry = state.entries[dateKey];
-                                    const isToday = dateKey === todayKey;
-                                    const tooltipData = entry ? `🍷 ${entry.alcohol} | 👟 ${parseInt(entry.steps).toLocaleString()} | 💪 ${entry.workout ? 'Yes' : 'No'}` : 'No data';
+                            return `
+                                <div class="calendar-grid mb-1">
+                                    ${week.map(day => {
+                                        if (!day) return '<div class="calendar-empty"></div>';
 
-                                    return `
-                                        <div
-                                            data-tooltip="${tooltipData}"
-                                            class="calendar-day bg-gray-100 ${isToday ? 'ring-2 ring-[#7fd4b8]' : ''}"
-                                        >
-                                            <div class="font-semibold">${day}</div>
-                                            ${entry ? `
-                                                <div class="flex gap-1 mt-1 justify-center">
-                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('alcohol', entry.alcohol)}" title="Grey Juice"></div>
-                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('steps', entry.steps)}" title="Steps"></div>
-                                                    <div class="w-2 h-2 rounded-full ${tracker.getColor('workout', entry.workout)}" title="Workout"></div>
-                                                </div>
-                                            ` : '<div class="text-gray-400 text-xs mt-1">-</div>'}
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        `).join('')}
+                                        const date = new Date(year, month, day);
+                                        const dateKey = tracker.formatDate(date);
+                                        const entry = state.entries[dateKey];
+                                        const isToday = dateKey === todayKey;
+                                        const tooltipData = entry ? `🍷 ${entry.alcohol} | 👟 ${parseInt(entry.steps).toLocaleString()} | 💪 ${entry.workout ? 'Yes' : 'No'}` : 'No data';
+
+                                        // Determine workout dot color based on week progress
+                                        let workoutColor = 'bg-gray-300';
+                                        if (entry) {
+                                            if (entry.workout === true) {
+                                                // Green if goal met, yellow if in progress
+                                                workoutColor = weekWorkouts >= workoutGoal ? 'bg-[#b8f4d4]' : 'bg-[#fff4b8]';
+                                            } else if (entry.workout === false) {
+                                                workoutColor = 'bg-[#ffb8b8]';
+                                            }
+                                        }
+
+                                        return `
+                                            <div
+                                                data-tooltip="${tooltipData}"
+                                                class="calendar-day bg-gray-100 ${isToday ? 'ring-2 ring-[#7fd4b8]' : ''}"
+                                            >
+                                                <div class="font-semibold">${day}</div>
+                                                ${entry ? `
+                                                    <div class="flex gap-1 mt-1 justify-center">
+                                                        <div class="w-2 h-2 rounded-full ${tracker.getColor('alcohol', entry.alcohol)}" title="Grey Juice"></div>
+                                                        <div class="w-2 h-2 rounded-full ${tracker.getColor('steps', entry.steps)}" title="Steps"></div>
+                                                        <div class="w-2 h-2 rounded-full ${workoutColor}" title="Workout"></div>
+                                                    </div>
+                                                ` : '<div class="text-gray-400 text-xs mt-1">-</div>'}
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `;
+                        }).join('')}
+                        <div class="tooltip-backdrop" id="tooltipBackdrop"></div>
                         <div id="tooltip" class="day-tooltip"></div>
 
                         <!-- Monthly Summary Metrics -->
@@ -1205,7 +1361,7 @@
                 }
 
                 return `
-                    <div class="p-4 space-y-6">
+                    <div class="p-4 space-y-6 slide-up">
                         <h2 class="text-2xl font-bold text-center mb-6">${currentYear} Summary</h2>
 
                         <div class="bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-lg shadow-lg text-white">
@@ -1328,6 +1484,79 @@
                             </div>
                         </div>
 
+                        <!-- 30-Day Trend Charts -->
+                        <div class="card mt-6">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4">📈 30-Day Trends</h3>
+                            ${(() => {
+                                // Get last 30 days of data
+                                const today = new Date();
+                                const last30Days = [];
+                                for (let i = 29; i >= 0; i--) {
+                                    const date = new Date(today);
+                                    date.setDate(today.getDate() - i);
+                                    const dateKey = tracker.formatDate(date);
+                                    const entry = state.entries[dateKey];
+                                    last30Days.push({ date: dateKey, entry });
+                                }
+
+                                return `
+                                    <div class="space-y-6">
+                                        <!-- Grey Juice Trend -->
+                                        <div>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-sm font-semibold text-gray-700">🍷 Grey Juice</span>
+                                                <span class="text-xs text-gray-500">Last 30 days</span>
+                                            </div>
+                                            <div class="flex items-end gap-0.5 h-20">
+                                                ${last30Days.map(({entry}) => {
+                                                    if (!entry) return '<div class="flex-1 bg-gray-200 rounded-t opacity-30" style="height: 10%"></div>';
+                                                    const drinks = parseInt(entry.alcohol) || 0;
+                                                    const maxDrinks = 10;
+                                                    const height = Math.min((drinks / maxDrinks) * 100, 100);
+                                                    const color = tracker.getColor('alcohol', entry.alcohol).replace('bg-', '');
+                                                    return `<div class="flex-1 ${tracker.getColor('alcohol', entry.alcohol)} rounded-t" style="height: ${height}%"></div>`;
+                                                }).join('')}
+                                            </div>
+                                        </div>
+
+                                        <!-- Steps Trend -->
+                                        <div>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-sm font-semibold text-gray-700">👟 Steps</span>
+                                                <span class="text-xs text-gray-500">Target: ${state.settings.stepsGoal.toLocaleString()}</span>
+                                            </div>
+                                            <div class="flex items-end gap-0.5 h-20">
+                                                ${last30Days.map(({entry}) => {
+                                                    if (!entry) return '<div class="flex-1 bg-gray-200 rounded-t opacity-30" style="height: 10%"></div>';
+                                                    const steps = parseInt(entry.steps) || 0;
+                                                    const maxSteps = 20000;
+                                                    const height = Math.min((steps / maxSteps) * 100, 100);
+                                                    return `<div class="flex-1 ${tracker.getColor('steps', entry.steps)} rounded-t" style="height: ${height}%"></div>`;
+                                                }).join('')}
+                                            </div>
+                                        </div>
+
+                                        <!-- Workout Trend -->
+                                        <div>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-sm font-semibold text-gray-700">💪 Workouts</span>
+                                                <span class="text-xs text-gray-500">Last 30 days</span>
+                                            </div>
+                                            <div class="flex items-end gap-0.5 h-16">
+                                                ${last30Days.map(({entry}) => {
+                                                    if (!entry || entry.workout === null || entry.workout === undefined) {
+                                                        return '<div class="flex-1 bg-gray-200 rounded-t opacity-30" style="height: 30%"></div>';
+                                                    }
+                                                    const color = entry.workout === true ? 'bg-[#b8f4d4]' : 'bg-[#ffb8b8]';
+                                                    return `<div class="flex-1 ${color} rounded-t" style="height: 100%"></div>`;
+                                                }).join('')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            })()}
+                        </div>
+
                         <div class="text-center text-sm text-gray-600 mt-6">
                             Total entries this year: ${yearDates.length} days
                         </div>
@@ -1339,7 +1568,7 @@
                 const settings = state.settings;
 
                 return `
-                    <div class="p-4 space-y-6">
+                    <div class="p-4 space-y-6 slide-up">
                         <h2 class="text-2xl font-bold text-gray-800 mb-4">⚙️ Settings</h2>
 
                         <div class="card">
@@ -1553,43 +1782,43 @@
 
                 // Edit date buttons handled by event delegation (see bottom of attachEventListeners)
 
-                // Tooltip for week view
+                // Tooltip for week/month view with centered modal style
                 const tooltip = document.getElementById('tooltip');
-                if (tooltip) {
+                const backdrop = document.getElementById('tooltipBackdrop');
+
+                if (tooltip && backdrop) {
+                    const showTooltip = (text) => {
+                        tooltip.textContent = text;
+                        tooltip.classList.add('show');
+                        backdrop.classList.add('show');
+                    };
+
+                    const hideTooltip = () => {
+                        tooltip.classList.remove('show');
+                        backdrop.classList.remove('show');
+                    };
+
                     document.querySelectorAll('[data-tooltip]').forEach(elem => {
-                        const positionTooltip = (rect) => {
-                            tooltip.classList.add('show');
-                            // Calculate centered position
-                            let left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2;
-
-                            // Prevent tooltip from going off-screen on the left
-                            if (left < 8) left = 8;
-
-                            // Prevent tooltip from going off-screen on the right
-                            const maxLeft = window.innerWidth - tooltip.offsetWidth - 8;
-                            if (left > maxLeft) left = maxLeft;
-
-                            tooltip.style.left = left + 'px';
-                            tooltip.style.top = rect.bottom + 8 + 'px';
-                        };
-
+                        // Desktop: hover to show
                         elem.addEventListener('mouseenter', (e) => {
-                            tooltip.textContent = e.target.dataset.tooltip;
-                            const rect = e.target.getBoundingClientRect();
-                            positionTooltip(rect);
+                            showTooltip(e.target.dataset.tooltip);
                         });
+
+                        // Desktop: mouse leave to hide
                         elem.addEventListener('mouseleave', () => {
-                            tooltip.classList.remove('show');
+                            hideTooltip();
                         });
-                        // Touch support for mobile - show tooltip briefly
+
+                        // Mobile: tap to show (persistent)
                         elem.addEventListener('touchstart', (e) => {
-                            // Don't prevent default - let the click event fire for navigation
-                            tooltip.textContent = e.currentTarget.dataset.tooltip;
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            positionTooltip(rect);
-                            setTimeout(() => tooltip.classList.remove('show'), 1500);
+                            e.stopPropagation(); // Prevent backdrop click from immediately closing
+                            showTooltip(e.currentTarget.dataset.tooltip);
                         });
                     });
+
+                    // Click/tap backdrop or tooltip to dismiss
+                    backdrop.addEventListener('click', hideTooltip);
+                    tooltip.addEventListener('click', hideTooltip);
                 }
 
                 // Week navigation
@@ -1644,5 +1873,10 @@
             App();
         }
     </script>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
 </body>
 </html>
