@@ -927,15 +927,17 @@
                         ${weeks.map(week => `
                             <div class="calendar-grid mb-1">
                                 ${week.map(day => {
-                                    if (!day) return '<div class="calendar-day"></div>';
+                                    if (!day) return '<div></div>';
 
                                     const date = new Date(year, month, day);
                                     const dateKey = tracker.formatDate(date);
                                     const entry = state.entries[dateKey];
                                     const isToday = dateKey === todayKey;
+                                    const tooltipData = entry ? `🍷 ${entry.alcohol} | 👟 ${parseInt(entry.steps).toLocaleString()} | 💪 ${entry.workout ? 'Yes' : 'No'}` : 'No data';
 
                                     return `
                                         <div
+                                            data-tooltip="${tooltipData}"
                                             class="calendar-day bg-gray-100 ${isToday ? 'ring-2 ring-[#7fd4b8]' : ''}"
                                         >
                                             <div class="font-semibold">${day}</div>
@@ -951,6 +953,7 @@
                                 }).join('')}
                             </div>
                         `).join('')}
+                        <div id="tooltip" class="day-tooltip"></div>
 
                         <!-- Monthly Summary Metrics -->
                         ${(() => {
@@ -1554,12 +1557,26 @@
                 const tooltip = document.getElementById('tooltip');
                 if (tooltip) {
                     document.querySelectorAll('[data-tooltip]').forEach(elem => {
+                        const positionTooltip = (rect) => {
+                            tooltip.classList.add('show');
+                            // Calculate centered position
+                            let left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2;
+
+                            // Prevent tooltip from going off-screen on the left
+                            if (left < 8) left = 8;
+
+                            // Prevent tooltip from going off-screen on the right
+                            const maxLeft = window.innerWidth - tooltip.offsetWidth - 8;
+                            if (left > maxLeft) left = maxLeft;
+
+                            tooltip.style.left = left + 'px';
+                            tooltip.style.top = rect.bottom + 8 + 'px';
+                        };
+
                         elem.addEventListener('mouseenter', (e) => {
                             tooltip.textContent = e.target.dataset.tooltip;
-                            tooltip.classList.add('show');
                             const rect = e.target.getBoundingClientRect();
-                            tooltip.style.left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2 + 'px';
-                            tooltip.style.top = rect.bottom + 8 + 'px';
+                            positionTooltip(rect);
                         });
                         elem.addEventListener('mouseleave', () => {
                             tooltip.classList.remove('show');
@@ -1568,10 +1585,8 @@
                         elem.addEventListener('touchstart', (e) => {
                             // Don't prevent default - let the click event fire for navigation
                             tooltip.textContent = e.currentTarget.dataset.tooltip;
-                            tooltip.classList.add('show');
                             const rect = e.currentTarget.getBoundingClientRect();
-                            tooltip.style.left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2 + 'px';
-                            tooltip.style.top = rect.bottom + 8 + 'px';
+                            positionTooltip(rect);
                             setTimeout(() => tooltip.classList.remove('show'), 1500);
                         });
                     });
